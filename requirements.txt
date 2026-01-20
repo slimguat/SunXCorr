@@ -1,0 +1,3 @@
+mpl_animators
+reproject
+git+https://github.com/slimguat/saffron-spice.git
