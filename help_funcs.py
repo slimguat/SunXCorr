@@ -635,6 +635,13 @@ def interpol2d(image, x, y, fill, order, dst=None):
         return dst
 
 # build synthetic FSI raster.
+def meta_to_header(meta):
+      hdr = fits.Header()
+      for k, v in meta.items():
+        try: hdr[k] = v
+        except: pass
+      return hdr
+  
 def build_synthetic_raster_from_maps(
     spice_map: GenericMap,
     fsi_maps: Sequence[Union[GenericMap, str, Path]],
@@ -679,15 +686,6 @@ def build_synthetic_raster_from_maps(
         fsi_times_list.append(_extract_map_time(entry, verbose=verbose))  
     fsi_times: NDArray[np.datetime64] = np.array(fsi_times_list)
     
-    def meta_to_header(meta):
-      hdr = fits.Header()
-      for k, v in meta.items():
-        if len(k) > 8 or k.startswith("_"):
-          continue  # skip non-FITS-style keys
-        if isinstance(v, str):
-          v = v.replace("\n", " ").encode("ascii", "ignore").decode("ascii")
-        hdr[k] = v
-      return hdr
     WCS3D = WCS(meta_to_header(spice_map.meta))
     
     x = np.arange(nx)
