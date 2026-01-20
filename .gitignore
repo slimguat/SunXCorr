@@ -29,5 +29,13 @@ htmlcov/
 .coverage.*
 .pytest_cache/
 
+# Local data and large artifacts
+fits_files/
+*.fits
+*.fts
+*.fit
+tmp/
+data_storage/
+
 # OS files
 .DS_Store
