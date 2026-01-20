@@ -30,9 +30,6 @@ htmlcov/
 .pytest_cache/
 
 # Local data and large artifacts
-*.fits
-*.fts
-*.fit
 tmp/
 
 # OS files
