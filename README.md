@@ -84,6 +84,7 @@ Given a corrected map, an uncorrected map, and the original target frame, this f
 - Derives the scale ratios between corrected and uncorrected CDELT values and applies them to the target frame.
 - Produces a new `Map` in the target frame with updated `CRVAL`/`CDELT` while preserving data and plot settings. This is useful to apply the alignment solution back onto the native raster frame for downstream products.
 
+
 ## Typical usage
 1. Reproject SPICE onto FSI: `reproject_map_to_reference`.
 2. Optimize alignment: `best_params, history = optimize_alignment_local_grad_disc_persworkers(...)`.
