@@ -17,28 +17,6 @@ flowchart TD
     D --> E["Translate to native frame"]
     E --> F["Inspect diagnostics"]
 ```
-flowchart LR
-  classDef gen fill:#00000000,stroke:#0277bd,stroke-width:1.5px;
-  classDef eval fill:#00000000,stroke:#2e7d32,stroke-width:1.5px;
-  classDef select fill:#00000000,stroke:#ef6c00,stroke-width:1.5px;
-  classDef move fill:#00000000,stroke:#5e35b1,stroke-width:1.5px;
-  classDef plateau fill:#00000000,stroke:#c2185b,stroke-width:1.5px;
-
-  subgraph L[ ]
-    B["Evaluate corr"]:::eval
-    C["Select best"]:::select
-    D["Move step"]:::move
-  end
-  subgraph R[ ]
-    A["Neighbors sample"]:::gen
-    E["Plateau check"]:::plateau
-  end
-
-  A --> B
-  B --> C
-  C --> D
-  D --> E
-  A --> E
 
 ## Overview
 This module aligns SPICE rasters to FSI reference maps via image-domain cross-correlation. The workflow:
