@@ -9,13 +9,36 @@ This work was inspired by open-source alignment tools and code snippets by:
 ## Diagram
 ```mermaid
 flowchart TD
-    A["Load FSI map (reference) and SPICE map (target)"] --> B["Reproject SPICE onto FSI grid<br/>(reproject_map_to_reference)"]
-    B --> C["Optimize shift/scale<br/>(optimize_alignment_local_grad_disc_persworkers)<br/>dx, dy, sx, sy -> maximize corr"]
-    C --> D["Apply WCS-only fix on reprojected map<br/>(make_corrected_wcs_map)"]
-    D --> E["Translate correction to native SPICE frame<br/>(find_original_correction)"]
-    E --> F["Inspect diagnostics<br/>plot_alignment_before_after / plot_history_scatter / correlation_with_iteration"]
+  A["Load FSI ref + SPICE target"] --> B["Reproject SPICE -> FSI grid"]
+  A2["Load SPICE + FSI paths"] --> A3
+  A3["Build synthetic FSI raster"] --> C
+    B --> C["Optimize dx/dy/sx/sy"]
+    C --> D["Apply WCS fix"]
+    D --> E["Translate to native frame"]
+    E --> F["Inspect diagnostics"]
 ```
+flowchart LR
+  classDef gen fill:#00000000,stroke:#0277bd,stroke-width:1.5px;
+  classDef eval fill:#00000000,stroke:#2e7d32,stroke-width:1.5px;
+  classDef select fill:#00000000,stroke:#ef6c00,stroke-width:1.5px;
+  classDef move fill:#00000000,stroke:#5e35b1,stroke-width:1.5px;
+  classDef plateau fill:#00000000,stroke:#c2185b,stroke-width:1.5px;
 
+  subgraph L[ ]
+    B["Evaluate corr"]:::eval
+    C["Select best"]:::select
+    D["Move step"]:::move
+  end
+  subgraph R[ ]
+    A["Neighbors sample"]:::gen
+    E["Plateau check"]:::plateau
+  end
+
+  A --> B
+  B --> C
+  C --> D
+  D --> E
+  A --> E
 
 ## Overview
 This module aligns SPICE rasters to FSI reference maps via image-domain cross-correlation. The workflow:
@@ -52,19 +75,27 @@ This discrete, stochastic hill-climber searches a 4D parameter space `(dx, dy, s
 - `history`: array of sampled points with columns `[iteration, dx, dy, squeeze_x, squeeze_y, corr]` for diagnostics (scatter/trace plots).
 
 ```mermaid
-flowchart LR
-  classDef gen fill:#00000000,stroke:#0277bd,stroke-width:1.5px;
-  classDef eval fill:#00000000,stroke:#2e7d32,stroke-width:1.5px;
-  classDef select fill:#00000000,stroke:#ef6c00,stroke-width:1.5px;
-  classDef move fill:#00000000,stroke:#5e35b1,stroke-width:1.5px;
-  classDef plateau fill:#00000000,stroke:#c2185b,stroke-width:1.5px;
-  A["Neighbor generation<br/>integer lattice * step, bounds/frozen respected"]:::gen
-  B["Parallel evaluation<br/>(dx,dy,sx,sy) via workers + cache"]:::eval
-  C["Selection<br/>best local + track global"]:::select
-  D["Gradient-like move<br/>corr-weighted direction; fallback to local best if worse"]:::move
-  E["Plateau detection & step shrink<br/>corr spread < atol/rtol; shrink or stop"]:::plateau
-  A --> B --> C --> D --> E --> A
+flowchart TD
+  %% Styles
+  classDef gen fill:#00000000,stroke-width:1.5px;
+  classDef eval fill:#00000000,stroke-width:1.5px;
+  classDef select fill:#00000000,stroke-width:1.5px;
+  classDef move fill:#00000000,stroke-width:1.5px;
+  classDef plateau fill:#00000000,stroke-width:1.5px;
+  classDef startend fill:#388e3c,stroke:transparent,stroke-width:0px,rx:12,ry:12;
+  classDef decision fill:#00000000,stroke-width:1.5px,shape:diamond;
+
+  S([Start]):::startend --> A["Neighbors sample"]:::gen
+  A --> B["Evaluate corr"]:::eval
+  B --> C["Select best"]:::select
+  C --> E{"Plateau?"}:::decision
+  E -->|No| D["Move step"]:::move
+  E -->|Yes| E2{"Steps min?"}:::decision
+  E2 -->|Yes| E3([End]):::startend
+  E2 -->|No| E4["Shrink steps"]:::plateau --> D
+  D --> A
 ```
+
   ![Optimizer sampling and trajectory](optimizer_path.png)
 
 ## Correlation metric: `correlation_for_params`
