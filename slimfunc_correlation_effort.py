@@ -1,3 +1,17 @@
+"""Cross-correlation helpers for SPICE/FSI alignment workflows.
+
+Usage outline:
+
+- Reproject maps onto a common grid with `reproject_map_to_reference`.
+- Estimate shifts and scale factors with `optimize_alignment_local` or
+    `optimize_alignment_local_grad_disc_persworkers`.
+- Inspect results using `plot_alignment_before_after`,
+    `correlation_with_iteration`, and `plot_history_scatter`.
+- Apply the correction via `make_corrected_wcs_map` and optionally recover the
+    original pointing with `find_original_correction`.
+- Create quick before/after animations with `blink_maps`.
+"""
+
 from numba import jit
 import sunpy.map
 from reproject import reproject_interp
@@ -19,6 +33,22 @@ from matplotlib.figure import Figure
 from saffron.postprocessing import SPICEL3Raster
 from sunpy.map import Map
 from sunpy.map import GenericMap
+
+__all__: list[str] = [
+    "normalized_corr_nan_safe",
+    "squeeze_to_ref_grid",
+    "shift_image",
+    "correlation_for_params",
+    "optimize_alignment_local",
+    "optimize_alignment_local_grad_disc_persworkers",
+    "reproject_map_to_reference",
+    "plot_history_scatter",
+    "plot_alignment_before_after",
+    "correlation_with_iteration",
+    "blink_maps",
+    "make_corrected_wcs_map",
+    "find_original_correction",
+]
 
 
 def normalized_corr_nan_safe(img1: np.ndarray, img2: np.ndarray) -> float:

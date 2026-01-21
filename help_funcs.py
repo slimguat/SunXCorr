@@ -1,5 +1,17 @@
 # -*- coding: utf-8 -*-
 
+"""Utility helpers for SPICE/FSI cross-correlation workflows.
+
+Usage outline:
+
+- `to_submap`: extract a submap of a target map aligned to a source map’s
+    footprint, with optional solar rotation.
+- `get_EUI_paths` / `get_closest_EUIFSI174_paths`: locate EUI FITS files over
+    a time range or nearest to a reference time.
+- `build_synthetic_raster_from_maps` (+ parallel variant): resample FSI maps
+    onto a SPICE raster grid to produce synthetic rasters.
+- `interpol2d`: fast 2D interpolation utility used by the raster builders.
+"""
 
 from typing import Sequence, Union
 import numpy as np
@@ -18,6 +30,15 @@ from typing import Sequence, Union
 from saffron.utils import normit
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from threading import Lock
+
+__all__: list[str] = [
+    "to_submap",
+    "get_EUI_paths",
+    "get_closest_EUIFSI174_paths",
+    "build_synthetic_raster_from_maps",
+    "build_synthetic_raster_from_maps_parallel",
+    "interpol2d",
+]
 
 def to_submap(
     target_map: GenericMap,

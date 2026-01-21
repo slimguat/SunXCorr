@@ -1,5 +1,11 @@
 # Cross-correlation and WCS Correction
 
+## Credits / Inspiration
+This work was inspired by open-source alignment tools and code snippets by:
+- [Antoine Dolliou](https://github.com/adolliou/euispice_coreg)
+- [Gabriel Pelouze](https://git.ias.u-psud.fr/gpelouze/align_images/-/tree/master)
+- [Frédéric Auchère](http://git.ias.u-psud.fr/fauchere)
+
 ## Diagram
 ```mermaid
 flowchart TD
