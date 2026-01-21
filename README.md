@@ -79,10 +79,10 @@ flowchart TD
 ## Correlation metric: `correlation_for_params`
 The optimizer maximizes a NaN-safe, mean-centered, normalized cross-correlation between the reference image `R` and the transformed target `T`. Let `M` be the mask of finite pixels (`1` where both images are finite, `0` otherwise). The correlation is:
 
-$$
-\mathrm{corr} = \frac{\sum_{i,j} M_{ij}\,(R_{ij}-\bar{R})\,(T_{ij}-\bar{T})}{\sqrt{\sum_{i,j} M_{ij}\,(R_{ij}-\bar{R})^2}\;\sqrt{\sum_{i,j} M_{ij}\,(T_{ij}-\bar{T})^2}}
-$$
 
+```math
+\mathrm{corr} = \frac{\sum_{i,j} M_{ij}\,(R_{ij}-\bar{R})\,(T_{ij}-\bar{T})}{\sqrt{\sum_{i,j} M_{ij}\,(R_{ij}-\bar{R})^2}\;\sqrt{\sum_{i,j} M_{ij}\,(T_{ij}-\bar{T})^2}}
+```
 where $\bar{R}$ and $\bar{T}$ are means computed only over the masked finite pixels. If the denominator is zero or no valid pixels remain, the function returns zero. The value lies in $[-1,1]$ by construction.
 
 Interpretation:
