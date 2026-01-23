@@ -980,4 +980,3 @@ def build_synthetic_raster_multiproc(
     return GenericMap(data_composed, hdr, plot_settings=plot_settings)
 
 
-

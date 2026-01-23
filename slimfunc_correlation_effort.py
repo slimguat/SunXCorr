@@ -132,7 +132,7 @@ def shift_image(img: np.ndarray, dx: int, dy: int) -> np.ndarray:
     Positive dx -> right, positive dy -> down.
     """
     ny, nx = img.shape
-    out = np.zeros_like(img)
+    out = np.full_like(img,np.nan)
 
     if dx >= 0:
         xs, xe = 0, nx - dx
@@ -147,6 +147,11 @@ def shift_image(img: np.ndarray, dx: int, dy: int) -> np.ndarray:
     else:
         ys, ye = -dy, ny
         yd, ye2 = 0, ny + dy
+
+    # no overlap -> return all-NaN
+    if ys >= ye or xs >= xe or yd >= ye2 or xd >= xe2:
+        return np.full_like(img, np.nan)
+
 
     out[yd:ye2, xd:xe2] = img[ys:ye, xs:xe]
     return out
@@ -183,6 +188,19 @@ def correlation_for_params(
 
     # 3) correlation at zero relative shift (already shifted)
     corr = normalized_corr_nan_safe(ref_img, shifted)
+    
+    # 4) penalty for number of valid pixels overlapping
+    original_valid = np.isfinite(ref_img) & np.isfinite(target_img)
+    warped_valid = np.isfinite(ref_img) & np.isfinite(shifted)
+    ratio = np.sum(warped_valid) / np.sum(original_valid) if np.sum(original_valid) > 0 else 0.0
+    # print(ratio,corr,dx,dy,squeeze_x,squeeze_y)
+    if ratio>1: # should not happen, but just in case
+        ratio = 1.0
+    if ratio>0.5: # if half of pixels are still valid, no penalty
+        ratio = 1.0
+    if ratio>0.0:
+        ratio = ratio  # double the penalty effect if less than half pixels are lost
+    corr *= ratio
     return corr
 
 def _corr_for_candidate(
@@ -906,7 +924,8 @@ def build_corrected_wcs_meta_scale_shift(
     new_meta : dict
         New metadata with updated CDELT1, CDELT2, CRVAL1, CRVAL2.
     """
-    meta = copy.deepcopy(map_in.meta)
+    meta = copy.deepcopy(map_in.wcs.to_header())
+    # meta = copy.deepcopy(map_in.meta)
 
     cdelt1_old = float(meta["CDELT1"])
     cdelt2_old = float(meta["CDELT2"])
@@ -919,9 +938,11 @@ def build_corrected_wcs_meta_scale_shift(
     cdelt2_new = cdelt2_old * squeeze_y
 
     # New pointing: encode data-shift (dx, dy) as opposite CRVAL change.
-    crval1_new = crval1_old + dx_pix * cdelt1_new
-    crval2_new = crval2_old + dy_pix * cdelt2_new
-
+    crval1_new = crval1_old + dx_pix * cdelt1_new #+50/3600
+    crval2_new = crval2_old + dy_pix * cdelt2_new #+150/3600
+    print(meta["CDELT1"]*3600,meta["CRVAL1"]*3600,meta["CRPIX1"])
+    print(crval1_old , dx_pix , cdelt1_new,dx_pix * cdelt1_new,cdelt1_new*meta["CRPIX1"])
+    print(crval2_old , dy_pix , cdelt2_new,dy_pix * cdelt2_new,cdelt2_new*meta["CRPIX2"])
     meta["CDELT1"] = cdelt1_new
     meta["CDELT2"] = cdelt2_new
     meta["CRVAL1"] = crval1_new
@@ -2272,7 +2293,7 @@ def optimize_alignment_local_grad_disc_persworkers(
                 cur_corr = best_local_corr
                 if verbose:
                     print(f"[iter {it}] fallback to best local (no step shrink).")
-
+            
             # -------------------------------
             # 5) Plateau detection & step shrink
             # -------------------------------
@@ -2290,19 +2311,28 @@ def optimize_alignment_local_grad_disc_persworkers(
                     if verbose:
                         print(f"[iter {it}] plateau: spread={spread:.3e}, "
                               f"tol={tol:.3e}, plateau_count={plateau_count}")
-                    # shrink steps only here
-                    step = shrink_steps_plateau(step)
-
+                    if plateau_count >= plateau_iters and all_at_min:
+                        if verbose:
+                            print("Plateau persisted and all steps at min; stopping.")
+                        break
                     # stop if plateau persisted AND all active steps at min
                     all_at_min = True
                     for i in range(4):
                         if step[i] > 0.0 and step[i] > min_step[i] + 1e-12:
                             all_at_min = False
                             break
-                    if plateau_count >= plateau_iters and all_at_min:
+                    if plateau_count >= plateau_iters:
                         if verbose:
-                            print("Plateau persisted and all steps at min; stopping.")
-                        break
+                            print("Plateau detected; shrinking steps.")
+                        # shrink steps only here
+                        step = shrink_steps_plateau(step)
+                        if verbose:
+                            print(f"New steps: dx={step[0]:.3f}, dy={step[1]:.3f}, "
+                                  f"sx={step[2]:.5f}, sy={step[3]:.5f}")
+                        plateau_count = 0
+                        
+                    
+                    
                 else:
                     plateau_count = 0
 
