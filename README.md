@@ -1,276 +1,210 @@
-# Cross-correlation and WCS Correction
+# Solar Coalignment
 
-## Credits / Inspiration
-This work was inspired by open-source alignment tools and code snippets by:
-- [Antoine Dolliou](https://github.com/adolliou/euispice_coreg)
-- [Gabriel Pelouze](https://git.ias.u-psud.fr/gpelouze/align_images/-/tree/master)
-- [Frédéric Auchère](http://git.ias.u-psud.fr/fauchere)
-
-## Diagram
-```mermaid
-flowchart TD
-  A["Load FSI ref + SPICE target"] --> B["Reproject SPICE -> FSI grid"]
-  A2["Load SPICE + FSI paths"] --> A3
-  A3["Build synthetic FSI raster"] --> C
-    B --> C["Optimize dx/dy/sx/sy"]
-    C --> D["Apply WCS fix"]
-    D --> E["Translate to native frame"]
-    E --> F["Inspect diagnostics"]
-```
+A Python library for high-precision coalignment of solar spectroscopic rasters with photometric reference images using cross-correlation optimization.
 
 ## Overview
-This module aligns SPICE rasters to FSI reference maps via image-domain cross-correlation. The workflow:
-1. Reproject the target (SPICE) map onto the reference (FSI) grid.
-2. Optimize geometric parameters (shift and isotropic/aniso scale) to maximize normalized correlation between the reference image and the transformed target.
-3. Encode the optimal pixel-domain transformation into the target map metadata (WCS) and, when needed, transform back into the original target frame.
 
-Key functions are documented below.
+This library provides a robust three-phase pipeline for aligning SPICE spectroscopic rasters with EUI/FSI reference images. The progressive refinement approach balances computational efficiency with sub-pixel accuracy, making it suitable for operational pipelines and scientific analysis.
 
-## Optimizer: `optimize_alignment_local_grad_disc_persworkers`
-This discrete, stochastic hill-climber searches a 4D parameter space `(dx, dy, sx, sy)` where `dx, dy` are pixel shifts and `sx, sy` are pixel scales. It maximizes `correlation_for_params`, which computes a NaN-safe normalized correlation between the reference image and a transformed target.
+## Installation
 
-**Inputs (selected):**
-- `ref_img`, `target_img`: 2D arrays on the same grid.
-- `dx0, dy0, squeeze_x0, squeeze_y0`: initial shift/scale guesses.
-- `step_*`: initial per-parameter step sizes; zero freezes a parameter.
-- `min_step_*`: lower bounds for step sizes.
-- `squeeze_*_bounds`, `shift_range`: hard bounds on parameters.
-- `n_neighbors`: number of neighbors sampled per iteration.
-- `max_iter`: iteration cap.
-- `center`: optional (cy, cx) for scaling about a chosen point.
-- `n_jobs`: number of worker processes for parallel correlation evaluations.
-- Plateau controls: `corr_atol`, `corr_rtol`, `plateau_iters`, `shrink_factor_*`.
-
-**Algorithm (per iteration):**
-1. **Neighbor generation:** integer lattice offsets (precomputed) are scaled by current step sizes to propose neighbors around the current point, respecting bounds and frozen dims.
-2. **Parallel evaluation:** each candidate `(dx, dy, sx, sy)` is evaluated via persistent worker processes that reuse loaded arrays and center parameters to avoid IPC overhead. Results are cached by rounded parameter tuples to skip duplicate work.
-3. **Selection:** choose the best local candidate by correlation; track a global best.
-4. **Gradient-like move:** compute a correlation-weighted mean of the sampled population; the difference from the previous mean defines a direction. Propose a step along this direction with length scaled to the correlation level; accept if it is no worse than the local best, else fall back to the local best. Frozen parameters are masked out in this move.
-5. **Plateau detection and step shrink:** monitor the spread of recent best correlations. If the spread is below `corr_atol + corr_rtol*|mean|` for `plateau_iters` windows, shrink steps (divide by `shrink_factor_*` or jump to `min_step_*` when the factor is `None`). Stop when the plateau persists and all active steps are at their minima.
-
-**Outputs:**
-- `best_params`: dict with `dx`, `dy`, `squeeze_x`, `squeeze_y`, and final `corr` at the last accepted center.
-- `history`: array of sampled points with columns `[iteration, dx, dy, squeeze_x, squeeze_y, corr]` for diagnostics (scatter/trace plots).
-
-```mermaid
-flowchart TD
-  %% Styles
-  classDef gen fill:#00000000,stroke-width:1.5px;
-  classDef eval fill:#00000000,stroke-width:1.5px;
-  classDef select fill:#00000000,stroke-width:1.5px;
-  classDef move fill:#00000000,stroke-width:1.5px;
-  classDef plateau fill:#00000000,stroke-width:1.5px;
-  classDef startend fill:#388e3c,stroke:transparent,stroke-width:0px,rx:12,ry:12;
-  classDef decision fill:#00000000,stroke-width:1.5px,shape:diamond;
-
-  S([Start]):::startend --> A["Neighbors sample"]:::gen
-  A --> B["Evaluate corr"]:::eval
-  B --> C["Select best"]:::select
-  C --> E{"Plateau?"}:::decision
-  E -->|No| D["Move step"]:::move
-  E -->|Yes| E2{"Steps min?"}:::decision
-  E2 -->|Yes| E3([End]):::startend
-  E2 -->|No| E4["Shrink steps"]:::plateau --> D
-  D --> A
+```bash
+pip install -e .
 ```
 
-  ![Optimizer sampling and trajectory](optimizer_path.png)
+## Quick Start
 
-## Correlation metric: `correlation_for_params`
-The optimizer maximizes a NaN-safe, mean-centered, normalized cross-correlation between the reference image `R` and the transformed target `T`. Let `M` be the mask of finite pixels (`1` where both images are finite, `0` otherwise). The correlation is:
+```python
+import sunpy.map
+from coaligner import Coaligner
 
+# Load maps
+spice_raster = sunpy.map.Map('spice_raster.fits')
+fsi_reference = sunpy.map.Map('eui_fsi_174.fits')
 
-```math
-\mathrm{corr} = \frac{\sum_{i,j} M_{ij}\,(R_{ij}-\bar{R})\,(T_{ij}-\bar{T})}{\sqrt{\sum_{i,j} M_{ij}\,(R_{ij}-\bar{R})^2}\;\sqrt{\sum_{i,j} M_{ij}\,(T_{ij}-\bar{T})^2}}
-```
-where $\bar{R}$ and $\bar{T}$ are means computed only over the masked finite pixels. If the denominator is zero or no valid pixels remain, the function returns zero. The value lies in $[-1,1]$ by construction.
+# Initialize and run coalignment
+aligner = Coaligner(
+    map_to_coalign=spice_raster,
+    reference_map=fsi_reference,
+    n_jobs=8
+)
 
-Interpretation:
-- `corr = 1`: perfect positive linear correspondence over valid pixels.
-- `corr = 0`: no linear correlation (or insufficient variance/valid pixels, which also returns 0).
-- `corr = -1`: perfect negative linear correspondence.
+# Execute three-phase alignment
+aligner.run_binned_xcorr()
+aligner.run_one_map_xcorr()
+aligner.run_synthetic_raster_xcorr()
 
-## WCS correction: `make_corrected_wcs_map`
-Takes the pixel-domain optimum (`best_params`) and constructs a new SunPy `Map` whose metadata encodes the shift/scale without resampling data. Internally calls `build_corrected_wcs_meta_scale_shift` to update `CDELT` (scale) and `CRVAL` (pointing) consistent with the pixel transform. The data array is reused unchanged; only WCS is adjusted.
-
-## Frame translation: `find_original_correction`
-Given a corrected map, an uncorrected map, and the original target frame, this function expresses the found correction in the target frame:
-- Transforms pointing between coordinate frames using `SkyCoord` and pixel/ world conversions.
-- Derives the scale ratios between corrected and uncorrected CDELT values and applies them to the target frame.
-- Produces a new `Map` in the target frame with updated `CRVAL`/`CDELT` while preserving data and plot settings. This is useful to apply the alignment solution back onto the native raster frame for downstream products.
-
-
-## Typical usage
-1. Reproject SPICE onto FSI: `reproject_map_to_reference`.
-2. Optimize alignment: `best_params, history = optimize_alignment_local_grad_disc_persworkers(...)`.
-3. Apply WCS-only correction on the reprojected map: `make_corrected_wcs_map`.
-4. Translate the correction to the original SPICE frame: `find_original_correction`.
-5. Inspect diagnostics with `plot_alignment_before_after`, `plot_history_scatter`, and `correlation_with_iteration`.
-
-## Synthetic raster generation (FSI -> SPICE geometry)
-When SPICE lacks a well-matched reference, you can synthesize a raster from time-adjacent FSI frames so the alignment runs SPICE-on-FSI in a like-for-like geometry.
-
-Workflow (conceptual):
-1. Collect EUI/FSI maps spanning the SPICE raster time window (see `get_EUI_paths`).
-2. For each SPICE column time stamp, pick the nearest FSI map (`_nearest_imager_index`) and reproject it to the SPICE frame at that time.
-3. Insert the interpolated column into the synthetic raster array; preserve NaNs where coverage is missing.
-4. Return a SunPy `Map` whose data mimics a SPICE raster sampled from FSI.
-
-
-## Notes
-- Correlation is NaN-robust; invalid pixels do not bias the score.
-- Bounds and frozen parameters are enforced per dimension; use zero step sizes to lock parameters.
-- Parallel mode uses persistent workers; wrap calls under `if __name__ == "__main__":` in scripts to avoid multiprocessing issues.
-
-
-# Mathematical justification: pixel-domain correction encoded as a WCS update
-
-This document provides a mathematical proof that the WCS-only update implemented by
-`build_corrected_wcs_meta_scale_shift` (and used by `make_corrected_wcs_map`) encodes
-exactly the same pixel-domain affine correction used during cross-correlation, without
-any resampling of the data array.
-
-## Notation
-
-Let pixel coordinates be column vectors:
-
-```math
-P=\begin{bmatrix}p_1\\p_2\end{bmatrix},\qquad
-P^0=\begin{bmatrix}\mathrm{CRPIX1}\\\mathrm{CRPIX2}\end{bmatrix}
+# Access corrected WCS parameters
+corrected_wcs = aligner.best_params
+corrected_map = aligner.results['synthetic_raster']['corrected_target_map']
 ```
 
-Let world coordinates (helioprojective components, in header units) be:
+## Algorithm
 
-```math
-X=\begin{bmatrix}x_1\\x_2\end{bmatrix},\qquad
-X^0=\begin{bmatrix}\mathrm{CRVAL1}\\\mathrm{CRVAL2}\end{bmatrix}
+The library implements a three-phase progressive refinement strategy:
+
+### Phase 1: Binned Cross-Correlation
+- **Purpose**: Fast coarse alignment
+- **Method**: Spatially binned maps (~50 arcsec/pixel)
+- **Search space**: 2D shift (±20-40 pixels)
+- **Typical runtime**: 10-30 seconds
+
+### Phase 2: Full-Resolution Refinement
+- **Purpose**: Sub-pixel accuracy
+- **Method**: Full-resolution single reference map
+- **Search space**: 2D shift (±10 pixels)
+- **Typical runtime**: 2-5 minutes
+
+### Phase 3: Synthetic Raster Optimization
+- **Purpose**: Temporal matching and scale correction
+- **Method**: Synthetic raster from FSI image sequence
+- **Search space**: 4D (shift + scale)
+- **Typical runtime**: 5-15 minutes
+
+The optimizer uses discrete gradient-based stochastic search with:
+- Parallel correlation evaluation via persistent worker processes
+- Correlation-weighted population gradients
+- Adaptive step sizes with plateau detection
+- Graceful convergence criteria
+
+## API Reference
+
+### Main Class
+
+```python
+class Coaligner:
+    """Three-phase solar image coalignment pipeline."""
+    
+    def __init__(self, map_to_coalign, reference_map, 
+                 list_of_reference_maps=None, verbose=0, n_jobs=cpu_count()-1)
+        """Initialize coaligner with maps and runtime settings."""
+    
+    def run_binned_xcorr(self)
+        """Execute Phase 1: coarse alignment with binned maps."""
+    
+    def run_one_map_xcorr(self, seed_shift=None)
+        """Execute Phase 2: full-resolution refinement."""
+    
+    def run_synthetic_raster_xcorr(self)
+        """Execute Phase 3: synthetic raster optimization."""
 ```
 
-Define the linear WCS matrix:
+### Key Functions
 
-```math
-M = S\,PC,\qquad
-S=\mathrm{diag}(\mathrm{CDELT1},\mathrm{CDELT2})
+```python
+def correlation_for_params(ref_img, target_img, dx, dy, sx, sy, center=None)
+    """NaN-safe normalized correlation with geometric parameters."""
+
+def make_corrected_wcs_map(map_obj, params, verbose=0)
+    """Apply geometric correction to map WCS metadata."""
+
+def reproject_map_to_reference(target_map, reference_map)
+    """Reproject target onto reference grid."""
+
+def build_synthetic_raster_from_maps(target_map, fsi_maps, ...)
+    """Generate synthetic raster from FSI sequence."""
 ```
 
-so that the linear WCS mapping is:
+## Configuration
 
-```math
-X = X^0 + M\,(P-P^0).
-\tag{1}
+### Optimization Parameters
+
+```python
+aligner = Coaligner(spice_map, fsi_map, n_jobs=16)
+
+# Phase 1 configuration
+aligner.xcorr_binned_kwargs['shift_range'] = (30, 30)
+aligner.xcorr_binned_kwargs['plateau_iters'] = 5
+aligner.bin_kernel_arcsec = 60 * u.arcsec
+
+# Phase 2 configuration
+aligner.xcorr_one_map_kwargs['shift_range'] = (15, 15)
+aligner.xcorr_one_map_kwargs['max_corr'] = 0.9
+
+# Phase 3 configuration
+aligner.synthetic_kwargs['scale_range'] = (0.95, 1.05)
+aligner.synthetic_kwargs['scale_step_x'] = 5e-4
+aligner.synthetic_kwargs['n_neighbors'] = 120
+aligner.synthetic_kwargs['reference_local_dir'] = '/data/eui/fsi174'
 ```
 
-## Pixel-domain transform optimized by correlation
+### FSI Image Discovery
 
-The optimizer searches over an affine transform in pixel space, expressed about the
-reference pixel `CRPIX`:
+```python
+# Automatic discovery from filesystem
+aligner.synthetic_reference_time_window = np.timedelta64(2, 'h')
+aligner.synthetic_kwargs['reference_channel_keyword'] = 'fsi174'
+aligner.synthetic_kwargs['reference_exclude_tokens'] = ('short', 'test')
 
-```math
-P' = P^0 + \Delta S\,(P-P^0) + \Delta,
-\tag{2}
+# Or provide explicit list
+fsi_maps = [sunpy.map.Map(f) for f in fsi_files]
+aligner = Coaligner(spice_map, fsi_ref, list_of_reference_maps=fsi_maps)
 ```
 
-with:
+## Performance Optimization
 
-```math
-\Delta S = \mathrm{diag}(s_x,s_y),\qquad
-\Delta=\begin{bmatrix}\Delta x\\ \Delta y\end{bmatrix}.
+1. **Parallelization**: Set `n_jobs` to number of physical cores
+2. **Neighbor sampling**: Balance between exploration (120) and speed (40)
+3. **Scale bounds**: Tighten `scale_range` if plate scales are well calibrated
+4. **Convergence**: Adjust `plateau_iters` for patience vs speed tradeoff
+5. **Early stopping**: Set `max_corr` threshold for sufficient alignment
+
+## Requirements
+
+- Python ≥ 3.11
+- NumPy
+- SunPy ≥ 5.0
+- Astropy
+- Matplotlib
+- SciPy
+- reproject
+
+See `requirements.txt` for complete dependency list.
+
+## Testing
+
+```bash
+# Run test suite
+python test_coaligner.py
+python test_adaptive_plot.py
+python test_blink_comparison.py
+
+# With custom data
+python test_coaligner.py --spice /path/to/spice.fits --fsi /path/to/fsi.fits
 ```
 
-## Invariance condition defining the corrected WCS
+## Module Structure
 
-The corrected WCS is defined by requiring that the same physical point is represented
-before and after correction:
-
-```math
-\mathrm{WCS}_{\mathrm{old}}(P) \equiv \mathrm{WCS}_{\mathrm{new}}(P')
-\quad\text{for all }P.
-\tag{3}
+```
+coaligner.py              # Main orchestrator class
+coalign_helpers.py        # Search algorithms and gradients
+coalign_workers.py        # Persistent worker processes
+coalign_debug.py          # Visualization context
+coalign_preprocess.py     # Data preparation
+help_funcs.py             # Map manipulation and I/O
+slimfunc_correlation_effort.py  # Core correlation functions
 ```
 
-Assume the corrected WCS has the same linear form:
+## Credits
 
-```math
-\mathrm{WCS}_{\mathrm{new}}(Q) = X^{0'} + M'\,(Q-P^{0'}),
-\tag{4}
+This work builds upon alignment tools and techniques by:
+- [Antoine Dolliou](https://github.com/adolliou/euispice_coreg)
+- [Gabriel Pelouze](https://git.ias.u-psud.fr/gpelouze/align_images)
+- [Frédéric Auchère](http://git.ias.u-psud.fr/fauchere)
+
+## License
+
+MIT License - see LICENSE file for details.
+
+## Citation
+
+If you use this library in your research, please cite:
+
+```bibtex
+@software{solar_coalignment,
+  author = {Zergua, Salim},
+  title = {Solar Coalignment Library},
+  year = {2026},
+  url = {https://github.com/yourusername/Cross_correlation}
+}
 ```
-
-and choose to keep the reference pixel fixed:
-
-```math
-P^{0'} = P^0.
-\tag{5}
-```
-
-## Derivation of the corrected linear matrix
-
-Substitute (2) and (5) into (4), and equate with (1) using (3):
-
-```math
-X^0 + M\,(P-P^0)
-=
-X^{0'} + M'\big(\Delta S\,(P-P^0) + \Delta\big).
-```
-
-Rearranging gives:
-
-```math
-X^0 + M\,(P-P^0)
-=
-X^{0'} + (M'\Delta S)(P-P^0) + M'\Delta.
-\tag{6}
-```
-
-Matching the linear terms yields:
-
-```math
-M = M'\Delta S
-\quad\Longrightarrow\quad
-M' = M(\Delta S)^{-1}.
-\tag{7}
-```
-
-## Derivation of the corrected reference world coordinate
-
-Matching the constant terms yields:
-
-```math
-X^0 = X^{0'} + M'\Delta
-\quad\Longrightarrow\quad
-X^{0'} = X^0 - M'\Delta.
-\tag{8}
-```
-
-## Factorization back into FITS WCS keywords
-
-Let the columns of `M'` be `m'_1` and `m'_2`. Define:
-
-```math
-\mathrm{CDELT1}' = \|m'_1\|,\qquad
-\mathrm{CDELT2}' = \|m'_2\|,
-\tag{9}
-```
-
-and:
-
-```math
-PC' =
-\left[
-\frac{m'_1}{\|m'_1\|}
-\;\;
-\frac{m'_2}{\|m'_2\|}
-\right].
-\tag{10}
-```
-
-Then:
-
-```math
-\mathrm{diag}(\mathrm{CDELT1}',\mathrm{CDELT2}')\,PC' = M'.
-```
-
-## Conclusion
-
-Equations (7)–(8) prove that updating the linear WCS matrix and reference world
-coordinate while keeping `CRPIX` fixed is sufficient and necessary to encode the
-pixel-domain shift/scale correction entirely within the WCS metadata.

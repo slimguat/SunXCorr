@@ -94,7 +94,7 @@ class DebugPlotContext:
     self.ax.set_title(f"Cross-correlation progression · {phase_label(phase)}")
     self.pdf_writer.savefig(self.fig)
 
-  def render_blink_comparison(
+  def render_comparison_animation(
       self,
       ref_map: GenericMap,
       target_map: GenericMap,
@@ -103,27 +103,24 @@ class DebugPlotContext:
       interval: int = 800,
       n_cycles: int = 5,
   ) -> None:
-    """
-    Render side-by-side blink animations showing before and after correction.
-    Saves as GIF or MP4 file in the same directory as the debug PDF.
+    """Render side-by-side comparison animations showing correction results.
     
-    Left: Reference map blinking with original uncorrected target
-    Right: Reference map blinking with corrected target
+    Creates a GIF animation comparing the original and corrected alignments.
     
     Parameters
     ----------
     ref_map : GenericMap
-        Reference map (FSI or synthetic raster depending on phase)
+        Reference map used for alignment
     target_map : GenericMap
         Original uncorrected target map
     corrected_map : GenericMap
-        Corrected target map
-    phase_name : str
-        Name of the phase (binning, one-map, synthetic) for filename
-    interval : int
-        Time between frames in milliseconds
-    n_cycles : int
-        Number of blink cycles
+        Corrected target map after alignment
+    phase_name : str, optional
+        Phase identifier for output filename
+    interval : int, default=800
+        Frame interval in milliseconds
+    n_cycles : int, default=5
+        Number of animation cycles
     """
     from slimfunc_correlation_effort import blink_maps
     
@@ -229,7 +226,7 @@ class DebugPlotContext:
     )
     
     # Create descriptive title with phase information
-    main_title = f"Blink Comparison: Before vs After Correction"
+    main_title = "Alignment Comparison: Before vs After Correction"
     if phase_name:
         main_title += f" - {phase_name.title()}"
     fig.suptitle(main_title, fontsize=14, y=0.98)
@@ -238,15 +235,15 @@ class DebugPlotContext:
     # Generate filename based on phase
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     phase_suffix = f"_{phase_name}" if phase_name else ""
-    gif_path = self.pdf_path.parent / f"blink_comparison{phase_suffix}_{timestamp}.gif"
+    gif_path = self.pdf_path.parent / f"comparison_animation{phase_suffix}_{timestamp}.gif"
     
     # Save animation as GIF
     try:
         writer = PillowWriter(fps=1000//interval)
         ani.save(str(gif_path), writer=writer, dpi=100)
-        print(f"✅ Blink animation saved: {gif_path}")
+        print(f"Comparison animation saved: {gif_path}")
     except Exception as e:
-        print(f"⚠️ Could not save GIF animation: {e}")
+        print(f"Warning: Could not save animation: {e}")
     
     plt.close(fig)
 
