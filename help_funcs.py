@@ -13,24 +13,34 @@ Usage outline:
 - `interpol2d`: fast 2D interpolation utility used by the raster builders.
 """
 
-from typing import Sequence, Union
+from typing import Any, Sequence, Union, cast
 import numpy as np
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
+import sunpy
+import sunpy.map.maputils
 from sunpy.map import GenericMap, Map
 from sunpy.physics.differential_rotation import solar_rotate_coordinate
-from saffron import utils
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
 from numpy.typing import NDArray
 from scipy.ndimage import map_coordinates
 from typing import Sequence, Union
-from saffron.utils import normit
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from threading import Lock
-
+from astropy.visualization import (
+    SqrtStretch,
+    PowerStretch,
+    LogStretch,
+    AsymmetricPercentileInterval,
+    ImageNormalize,
+    MinMaxInterval,
+    interval,
+    stretch,
+)
+from saffron.utils import normit
 __all__: list[str] = [
     "to_submap",
     "get_EUI_paths",
@@ -39,6 +49,61 @@ __all__: list[str] = [
     "build_synthetic_raster_from_maps_parallel",
     "interpol2d",
 ]
+from matplotlib.colors import Normalize
+def normit(
+    data: NDArray | None = None,
+    interval: interval.BaseInterval | None = AsymmetricPercentileInterval(1, 99),
+    stretch: stretch.BaseStretch | None = SqrtStretch(),
+    vmin: float | None = None,
+    vmax: float | None = None,
+    clip: bool = False,
+    invalid=-1.0,
+) -> Normalize | None:
+    """Normalize the data using the specified interval, stretch, vmin, and vmax.
+
+    Args:
+        data (numpy.ndarray): The data to be normalized.
+        interval (astropy.visualization.Interval, optional): The interval to use for normalization.
+            Defaults to AsymmetricPercentileInterval(1, 99).
+        stretch (astropy.visualization.Stretch, optional): The stretch to apply to the data.
+            Defaults to SqrtStretch().
+        vmin (float, optional): The minimum value for normalization. Defaults to None.
+        vmax (float, optional): The maximum value for normalization. Defaults to None.
+
+    Returns:
+        astropy.visualization.ImageNormalize | None: The normalized data or None if input data is all NaNs.
+    """
+    if vmin is not None or vmax is not None:
+        interval = None
+    if stretch is not None:
+        if data is None or np.all(np.isnan(data)):
+            return None
+        return ImageNormalize(
+            data,
+            interval,
+            stretch=stretch,
+            vmin=vmin,
+            vmax=vmax,
+            clip=clip,
+            invalid=invalid,
+        )
+
+    return ImageNormalize(
+        data, interval, vmin=vmin, vmax=vmax, clip=clip, invalid=invalid
+    )
+
+
+def get_coord_mat(map, as_skycoord=False):
+    res = sunpy.map.maputils.all_coordinates_from_map(map)
+    if as_skycoord:
+        return res
+    try:
+        lon = res.spherical.lon.arcsec
+        lat = res.spherical.lat.arcsec
+    except AttributeError:
+        lon = res.lon.value
+        lat = res.lat.value
+    return lon, lat
 
 def to_submap(
     target_map: GenericMap,
@@ -104,7 +169,7 @@ def to_submap(
     map1 = source_map
     map2 = target_map
 
-    lonlat_coords = utils.get_coord_mat(map1, as_skycoord=True)
+    lonlat_coords = get_coord_mat(map1, as_skycoord=True)
 
     bottom_left = SkyCoord(
         lonlat_coords.Tx.min(),
@@ -622,7 +687,16 @@ def _extract_map_time(entry: Union[GenericMap, str, Path], verbose: int = 0) -> 
         t = np.datetime64(entry.date.isot)
         _vprint(verbose, 3, f"Map time (GenericMap): {t}")
         return t
-    hdr = fits.getheader(entry, ext=1)
+    header = None
+    for ext in (1, 0):
+        try:
+            header = fits.getheader(entry, ext=ext)
+            break
+        except (FileNotFoundError, OSError, IndexError):
+            continue
+    if header is None:
+        raise ValueError(f"Unable to read FITS header from {entry}")
+    hdr = header
     date_key = hdr.get("DATE-AVG") or hdr.get("DATE-OBS") or hdr.get("DATE_BEG")
     if date_key is None:
         raise ValueError(f"No DATE-* keyword found in {entry}")
@@ -662,6 +736,42 @@ def meta_to_header(meta):
         try: hdr[k] = v
         except: pass
       return hdr
+
+
+def _pixel_world_with_optional_time(
+    wcs_obj: WCS,
+    xx: np.ndarray,
+    yy: np.ndarray,
+) -> tuple[SkyCoord, Any | None]:
+    pixel_inputs: list[Any] = [xx * u.pix, yy * u.pix]
+    if getattr(wcs_obj, "pixel_n_dim", 2) >= 3:
+        pixel_inputs.append(np.zeros_like(xx))
+    world_result = wcs_obj.pixel_to_world(*pixel_inputs)
+    if isinstance(world_result, tuple):
+        coords_spice = cast(SkyCoord, world_result[0])
+        time_payload = world_result[1] if len(world_result) > 1 else None
+    else:
+        coords_spice = cast(SkyCoord, world_result)
+        time_payload = None
+    return coords_spice, time_payload
+
+
+def _coerce_step_times(
+    time_payload: Any | None,
+    nx: int,
+    default_time: np.datetime64,
+) -> NDArray[np.datetime64]:
+    if time_payload is None:
+        return np.full(nx, default_time, dtype="datetime64[ms]")
+    try:
+        dt_values = np.asarray(time_payload.to_datetime(), dtype="datetime64[ms]")
+    except Exception:
+        return np.full(nx, default_time, dtype="datetime64[ms]")
+    if dt_values.ndim == 0:
+        return np.full(nx, dt_values, dtype="datetime64[ms]")
+    if dt_values.ndim > 1:
+        return dt_values[0]
+    return dt_values
   
 def build_synthetic_raster_from_maps(
     spice_map: GenericMap,
@@ -708,14 +818,17 @@ def build_synthetic_raster_from_maps(
     fsi_times: NDArray[np.datetime64] = np.array(fsi_times_list)
     
     WCS3D = WCS(meta_to_header(spice_map.meta))
-    
+
     x = np.arange(nx)
     y = np.arange(ny)
     xx, yy = np.meshgrid(x, y)
-    coords_spice: SkyCoord
-    coords_spice, time_matrix = WCS3D.pixel_to_world(xx*u.pix, yy*u.pix, 0)
-    step_times: NDArray[np.datetime64] = (time_matrix.to_datetime()).astype("datetime64")[0]
-    _vprint(verbose, 2, "Computed step_times from WCS3D time axis")
+    coords_spice, time_matrix = _pixel_world_with_optional_time(WCS3D, xx, yy)
+    step_times: NDArray[np.datetime64] = _coerce_step_times(
+        time_matrix,
+        nx,
+        np.datetime64(spice_map.date.isot),
+    )
+    _vprint(verbose, 2, "Computed step_times from WCS metadata")
     
     data_composed = np.full((ny, nx), np.nan, dtype=float)
     fsi_cache: dict[int, GenericMap] = {}
@@ -799,9 +912,13 @@ def build_synthetic_raster_from_maps_parallel(
     x = np.arange(nx)
     y = np.arange(ny)
     xx, yy = np.meshgrid(x, y)
-    coords_spice, time_matrix = WCS3D.pixel_to_world(xx * u.pix, yy * u.pix, 0)
-    step_times: NDArray[np.datetime64] = (time_matrix.to_datetime()).astype("datetime64")[0]
-    _vprint(verbose, 2, "Computed step_times from WCS3D time axis")
+    coords_spice, time_matrix = _pixel_world_with_optional_time(WCS3D, xx, yy)
+    step_times: NDArray[np.datetime64] = _coerce_step_times(
+        time_matrix,
+        nx,
+        np.datetime64(spice_map.date.isot),
+    )
+    _vprint(verbose, 2, "Computed step_times from WCS metadata")
 
     data_composed = np.full((ny, nx), np.nan, dtype=float)
     fsi_cache: dict[int, GenericMap] = {}
@@ -937,9 +1054,13 @@ def build_synthetic_raster_multiproc(
     x = np.arange(nx)
     y = np.arange(ny)
     xx, yy = np.meshgrid(x, y)
-    coords_spice, time_matrix = WCS3D.pixel_to_world(xx * u.pix, yy * u.pix, 0)
-    step_times_array: NDArray[np.datetime64] = (time_matrix.to_datetime()).astype("datetime64")[0]
-    _vprint(verbose, 2, "Computed step_times from WCS3D time axis")
+    coords_spice, time_matrix = _pixel_world_with_optional_time(WCS3D, xx, yy)
+    step_times_array: NDArray[np.datetime64] = _coerce_step_times(
+        time_matrix,
+        nx,
+        np.datetime64(spice_map.date.isot),
+    )
+    _vprint(verbose, 2, "Computed step_times from WCS metadata")
 
     tx = coords_spice.Tx
     ty = coords_spice.Ty

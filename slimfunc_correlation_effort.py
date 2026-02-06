@@ -12,27 +12,26 @@ Usage outline:
 - Create quick before/after animations with `blink_maps`.
 """
 
+from __future__ import annotations
 from numba import jit
-import sunpy.map
 from reproject import reproject_interp
 from multiprocessing import Pool
 import numpy as np
 from scipy.ndimage import affine_transform
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-from saffron.utils import get_coord_mat
 import copy
 import sunpy.map
-from saffron.utils import get_coord_mat
+from help_funcs import get_coord_mat
 from astropy.units import Quantity
 from astropy.coordinates import SkyCoord
-from sunpy.map import Map
-from typing import Tuple, Optional, List, Dict, Any
+from typing import Tuple, Optional, List, Dict, Any, Literal, Union, cast
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from saffron.postprocessing import SPICEL3Raster
-from sunpy.map import Map
-from sunpy.map import GenericMap
+from sunpy.map import Map,GenericMap
+from multiprocessing import Process, Queue
+ 
+
 
 __all__: list[str] = [
     "normalized_corr_nan_safe",
@@ -458,7 +457,7 @@ def reproject_map_to_reference(
     input_map : sunpy.map.Map
         Map to be reprojected.
     order : str or int
-        Interpolation order. For some reproject versions you may need
+        Interpolation order. For some reproject versions we may need
         order=1 instead of "bilinear".
 
     Returns
@@ -481,9 +480,9 @@ def reproject_map_to_reference(
     reprojected_data = np.where(footprint > 0, reprojected_data, np.nan)
 
     new_meta = ref_map.meta.copy()
-    new_map = sunpy.map.Map(reprojected_data, new_meta)
+    new_map = sunpy.map.Map(reprojected_data, new_meta, plot_settings=input_map.plot_settings)
 
-    return new_map
+    return cast(GenericMap, new_map)
 
 # ==============================================================
 # Visualization: scatter plot of optimization history
@@ -574,7 +573,7 @@ def plot_alignment_before_after(
     Parameters
     ----------
     ref_img : 2D array or sunpy.map.Map
-        Reference image (e.g. FSI/EUI) on the grid you optimised in.
+        Reference image (e.g. FSI/EUI) on the grid we optimised in.
     target_img : 2D array or sunpy.map.Map
         Target image before correction (e.g. SPICE projected to ref grid or
         original grid used in the optimizer).
@@ -741,7 +740,6 @@ def blink_maps(
     ax = plt.subplot(111)
 
     # --- FSI map ---
-    from saffron.utils import get_coord_mat
     from matplotlib.animation import FuncAnimation
 
     lonFSI, latFSI = get_coord_mat(fsi_map)
@@ -887,76 +885,277 @@ def blink_maps(
 
     return fig, ani, controls
 
+WCSLinearMode = Literal["pc2_unit", "cd_basis_unit", "cdelt_invariant", "cd"]
+
 
 def build_corrected_wcs_meta_scale_shift(
     map_in: GenericMap,
-    dx_pix: float = 0.0,
-    dy_pix: float = 0.0,
-    squeeze_x: float = 1.0,
-    squeeze_y: float = 1.0,
+    dx_opt: float = 0.0,
+    dy_opt: float = 0.0,
+    sx_opt: float = 1.0,
+    sy_opt: float = 1.0,
+    verbose: int = 0,
+    *,
+    linear_mode: WCSLinearMode = "cd_basis_unit",
 ) -> Dict[str, Any]:
     """
-    Build new WCS metadata for map_in by applying:
-      - global scale corrections (squeeze_x, squeeze_y)
-      - global pointing correction (dx_pix, dy_pix)
-    WITHOUT touching the data array.
+        Construct corrected WCS metadata encoding a pixel-domain affine registration
+        (anisotropic scaling about CRPIX followed by a translation), without resampling.
 
-    Interpretation:
-      - squeeze_x > 1 means: data had to be stretched in X to match reference,
-        so original CDELT1 was too small -> CDELT1_new = CDELT1_old / squeeze_x
-      - squeeze_y > 1 similarly for Y
-      - dx_pix, dy_pix are the pixel shifts (data-space):
-        to encode them as a pointing change, we shift CRVAL by
-        -dx_pix * CDELT1_new, -dy_pix * CDELT2_new.
+        Pixel-domain transform (registration model)
+        ------------------------------------------
+            P' = P0 + ΔS (P - P0) + Δ
 
-    Parameters
-    ----------
-    map_in : sunpy.map.Map
-        Map whose WCS will be corrected (data are unchanged).
-    dx_pix, dy_pix : float
-        Shift (pixels) from optimizer (positive dx = shift data right,
-        positive dy = shift data down).
-    squeeze_x, squeeze_y : float
-        Scale factors from optimizer.
+        with:
+        - P  = (pix1, pix2)^T
+        - P0 = (CRPIX1, CRPIX2)^T
+        - ΔS = diag(s_x, s_y)  (forward scale factors in WCS pixel axis order)
+        - Δ  = (Δx, Δy)^T      (forward translation in pixels; +x right, +y down)
 
-    Returns
-    -------
-    new_meta : dict
-        New metadata with updated CDELT1, CDELT2, CRVAL1, CRVAL2.
+        Linear WCS model (pre-projection)
+        ---------------------------------
+            X = X0 + M (P - P0)
+
+        with:
+        - X  = (world1, world2)^T  (intermediate world coords before projection)
+        - X0 = (CRVAL1, CRVAL2)^T
+        - M  = CD (the 2x2 linear Jacobian at CRPIX)
+        - P  = (pix1, pix2)^T
+        - P0 = (CRPIX1, CRPIX2)^T
+
+        Enforcing invariance of world coordinates
+        -----------------------------------------
+            WCS_old(P) = WCS_new(P')   for all P
+
+        Choosing P0' = P0 (CRPIX unchanged) yields:
+            M'  = M (ΔS)^{-1}
+            X0' = X0 - M' Δ
+
+        Optimizer convention
+        --------------------
+        The optimizer is assumed to return the inverse correction:
+        - s_x = 1 / sx_opt,   s_y = 1 / sy_opt
+        - Δx  = -dx_opt,      Δy  = -dy_opt
+
+        FITS linear WCS encodings
+        -------------------------
+        The linear mapping may be represented either as:
+        - CD matrix directly:
+                CD_ij  (preferred for unambiguous storage)
+            or
+        - PC + CDELT factorization (FITS row scaling):
+                CD = diag(CDELT1, CDELT2) @ PC
+
+            i.e. CDELT scales ROWS, not columns:
+                CD1_j = CDELT1 * PC1_j
+                CD2_j = CDELT2 * PC2_j
+
+        linear_mode (normalization / storage convention)
+        ------------------------------------------------
+        After computing the corrected CD matrix M' (=CD'), this function can store it as:
+
+        - "cd" :
+            Store CD' directly in CD1_1..CD2_2 and remove PC/CDELT.
+
+        - "cdelt_invariant" :
+            Keep existing CDELT1/2 unchanged and solve PC row-wise:
+                PC = diag(1/CDELT) @ CD'
+            This preserves the mapping exactly but does not enforce any PC normalization.
+
+        - "pc2_unit" (default) :
+            Enforce global (Frobenius) normalization of PC:
+                ||PC||_F^2 = sum_{i,j} PC_{i,j}^2 = 1
+            while preserving CD' exactly by a single global rescaling:
+                PC'    = PC / k
+                CDELT' = CDELT * k        (same k applied to both axes)
+            so that diag(CDELT') @ PC' == CD'.
+
+        - "cd_basis_unit" :
+            Enforce row-wise unit-norm of PC (basis vectors in FITS row-scaled sense):
+                ||PC[0,:]||_2 = 1   and   ||PC[1,:]||_2 = 1
+            while preserving CD' exactly by per-row rescaling:
+                PC'[0,:] = PC[0,:] / r1      CDELT1' = CDELT1 * r1
+                PC'[1,:] = PC[1,:] / r2      CDELT2' = CDELT2 * r2
+            so that diag(CDELT') @ PC' = CD'.
+
+        Returns
+        -------
+        dict
+            Header-like metadata dict with:
+            - CRPIX unchanged
+            - updated CRVAL1/2
+            - corrected linear mapping stored per `linear_mode`
     """
     meta = copy.deepcopy(map_in.wcs.to_header())
-    # meta = copy.deepcopy(map_in.meta)
 
-    cdelt1_old = float(meta["CDELT1"])
-    cdelt2_old = float(meta["CDELT2"])
-    crval1_old = float(meta["CRVAL1"])
-    crval2_old = float(meta["CRVAL2"])
+    crval1 = float(meta["CRVAL1"])
+    crval2 = float(meta["CRVAL2"])
 
-    # New pixel scales: if we had to stretch by sx in pixels,
-    # it means each pixel was actually sx times larger on the Sun.
-    cdelt1_new = cdelt1_old * squeeze_x
-    cdelt2_new = cdelt2_old * squeeze_y
+    # ----- read current linear matrix as CD -----
+    def _get_cd_from_header(h: Dict[str, Any]) -> np.ndarray:
+        if all(k in h for k in ("CD1_1", "CD1_2", "CD2_1", "CD2_2")):
+            return np.array(
+                [[float(h["CD1_1"]), float(h["CD1_2"])],
+                 [float(h["CD2_1"]), float(h["CD2_2"])]],
+                dtype=float,
+            )
 
-    # New pointing: encode data-shift (dx, dy) as opposite CRVAL change.
-    crval1_new = crval1_old + dx_pix * cdelt1_new #+50/3600
-    crval2_new = crval2_old + dy_pix * cdelt2_new #+150/3600
-    print(meta["CDELT1"]*3600,meta["CRVAL1"]*3600,meta["CRPIX1"])
-    print(crval1_old , dx_pix , cdelt1_new,dx_pix * cdelt1_new,cdelt1_new*meta["CRPIX1"])
-    print(crval2_old , dy_pix , cdelt2_new,dy_pix * cdelt2_new,cdelt2_new*meta["CRPIX2"])
-    meta["CDELT1"] = cdelt1_new
-    meta["CDELT2"] = cdelt2_new
-    meta["CRVAL1"] = crval1_new
-    meta["CRVAL2"] = crval2_new
+        cdelt1 = float(h["CDELT1"])
+        cdelt2 = float(h["CDELT2"])
+        pc11 = float(h.get("PC1_1", 1.0))
+        pc12 = float(h.get("PC1_2", 0.0))
+        pc21 = float(h.get("PC2_1", 0.0))
+        pc22 = float(h.get("PC2_2", 1.0))
+
+        return np.array(
+            [[cdelt1 * pc11, cdelt1 * pc12],
+             [cdelt2 * pc21, cdelt2 * pc22]],
+            dtype=float,
+        )
+
+    CD = _get_cd_from_header(meta)
+
+    # ----- optimizer -> forward affine params -----
+    if sx_opt == 0.0 or sy_opt == 0.0:
+        raise ValueError("sx_opt and sy_opt must be non-zero.")
+
+    s_x = 1.0 / sx_opt
+    s_y = 1.0 / sy_opt
+    dx = -dx_opt
+    dy = -dy_opt
+    
+    # ----- corrected linear matrix: CD' = CD @ inv(diag(sx,sy)) (rescales columns) -----
+    inv_DS = np.array([[1.0 / s_x, 0.0],
+                       [0.0, 1.0 / s_y]], dtype=float)
+    CDp = CD @ inv_DS
+
+    # ----- update CRVAL with CRPIX fixed: CRVAL' = CRVAL - CD' @ [dx,dy] -----
+    meta["CRVAL1"] = crval1 - (CDp[0, 0] * dx + CDp[0, 1] * dy)
+    meta["CRVAL2"] = crval2 - (CDp[1, 0] * dx + CDp[1, 1] * dy)
+
+    # ----- writers -----
+    def _write_cd(h: Dict[str, Any], CDm: np.ndarray) -> None:
+        h["CD1_1"], h["CD1_2"] = float(CDm[0, 0]), float(CDm[0, 1])
+        h["CD2_1"], h["CD2_2"] = float(CDm[1, 0]), float(CDm[1, 1])
+        for k in ("PC1_1", "PC1_2", "PC2_1", "PC2_2", "CDELT1", "CDELT2"):
+            h.pop(k, None)
+
+    def _write_pc_from_cd_and_cdelt(h: Dict[str, Any], CDm: np.ndarray, cdelt1: float, cdelt2: float) -> None:
+        if cdelt1 == 0.0 or cdelt2 == 0.0:
+            raise ValueError("Degenerate CDELT: cannot form PC.")
+        h["CDELT1"] = float(cdelt1)
+        h["CDELT2"] = float(cdelt2)
+
+        h["PC1_1"] = float(CDm[0, 0] / cdelt1)
+        h["PC1_2"] = float(CDm[0, 1] / cdelt1)
+        h["PC2_1"] = float(CDm[1, 0] / cdelt2)
+        h["PC2_2"] = float(CDm[1, 1] / cdelt2)
+
+        for k in ("CD1_1", "CD1_2", "CD2_1", "CD2_2"):
+            h.pop(k, None)
+
+    def _ensure_cdelt_exists(h: Dict[str, Any]) -> None:
+        if "CDELT1" not in h or "CDELT2" not in h:
+            raise ValueError("CDELT1/2 not present in header; cannot use PC+CDELT modes.")
+
+    def _write_pc_cdelt_invariant(h: Dict[str, Any], CDm: np.ndarray) -> None:
+        _ensure_cdelt_exists(h)
+        cdelt1 = float(h["CDELT1"])
+        cdelt2 = float(h["CDELT2"])
+        _write_pc_from_cd_and_cdelt(h, CDm, cdelt1, cdelt2)
+
+    def _write_pc2_unit_frobenius(h: Dict[str, Any], CDm: np.ndarray) -> None:
+        """
+        pc2_unit: enforce sum(PC^2)=1 (Frobenius norm 1), preserving CD.
+        Achieved by global scaling of PC by k and compensating both CDELT by k.
+        """
+        _ensure_cdelt_exists(h)
+        cdelt1 = float(h["CDELT1"])
+        cdelt2 = float(h["CDELT2"])
+        if cdelt1 == 0.0 or cdelt2 == 0.0:
+            raise ValueError("Degenerate CDELT: cannot form PC.")
+
+        PC = np.array([[CDm[0, 0] / cdelt1, CDm[0, 1] / cdelt1],
+                       [CDm[1, 0] / cdelt2, CDm[1, 1] / cdelt2]], dtype=float)
+
+        frob = float(np.sqrt(np.sum(PC * PC)))
+        if frob == 0.0:
+            raise ValueError("Degenerate PC: Frobenius norm zero.")
+
+        # Scale PC down, scale CDELT up -> CD unchanged
+        PCp = PC / frob
+        cdelt1p = cdelt1 * frob
+        cdelt2p = cdelt2 * frob
+
+        if verbose:
+            print(f"pc2_unit: Frobenius(PC)={frob:.6g} -> enforcing ||PC||_F=1")
+
+        _write_pc_from_cd_and_cdelt(h, CDm, cdelt1p, cdelt2p)
+        # overwrite PC with the normalized one explicitly (avoids tiny float drift)
+        h["PC1_1"], h["PC1_2"] = float(PCp[0, 0]), float(PCp[0, 1])
+        h["PC2_1"], h["PC2_2"] = float(PCp[1, 0]), float(PCp[1, 1])
+
+    def _write_cd_basis_unit_rows(h: Dict[str, Any], CDm: np.ndarray) -> None:
+        """
+        cd_basis_unit: enforce ||PC row1||=1 and ||PC row2||=1, preserving CD.
+        Achieved by scaling each PC row i by ki and compensating CDELTi by ki.
+        """
+        _ensure_cdelt_exists(h)
+        cdelt1 = float(h["CDELT1"])
+        cdelt2 = float(h["CDELT2"])
+        if cdelt1 == 0.0 or cdelt2 == 0.0:
+            raise ValueError("Degenerate CDELT: cannot form PC.")
+
+        PC = np.array([[CDm[0, 0] / cdelt1, CDm[0, 1] / cdelt1],
+                       [CDm[1, 0] / cdelt2, CDm[1, 1] / cdelt2]], dtype=float)
+
+        r1 = float(np.linalg.norm(PC[0, :]))
+        r2 = float(np.linalg.norm(PC[1, :]))
+        if r1 == 0.0 or r2 == 0.0:
+            raise ValueError("Degenerate PC: row norm zero.")
+
+        # Normalize rows, scale CDELT per row -> CD unchanged
+        PCp = PC.copy()
+        PCp[0, :] /= r1
+        PCp[1, :] /= r2
+        cdelt1p = cdelt1 * r1
+        cdelt2p = cdelt2 * r2
+
+        if verbose:
+            print(f"cd_basis_unit: row norms (r1,r2)=({r1:.6g},{r2:.6g}) -> enforcing both = 1")
+
+        _write_pc_from_cd_and_cdelt(h, CDm, cdelt1p, cdelt2p)
+        h["PC1_1"], h["PC1_2"] = float(PCp[0, 0]), float(PCp[0, 1])
+        h["PC2_1"], h["PC2_2"] = float(PCp[1, 0]), float(PCp[1, 1])
+
+    # ----- dispatch -----
+    if linear_mode == "cd":
+        _write_cd(meta, CDp)
+
+    elif linear_mode == "cdelt_invariant":
+        _write_pc_cdelt_invariant(meta, CDp)
+
+    elif linear_mode == "pc2_unit":
+        _write_pc2_unit_frobenius(meta, CDp)
+
+    elif linear_mode == "cd_basis_unit":
+        _write_cd_basis_unit_rows(meta, CDp)
+
+    else:
+        raise ValueError(
+            f"Unknown linear_mode='{linear_mode}'. "
+            "Choose from 'pc2_unit', 'cd_basis_unit', 'cdelt_invariant', 'cd'."
+        )
 
     return meta
 
-def make_corrected_wcs_map(map_in: GenericMap, best_params: Dict[str, float]) -> GenericMap:
-    """
-    Create a new SunPy Map with corrected WCS (CDELT/CRVAL),
-    using best_params from optimize_alignment_local.
 
-    Data array is reused unchanged.
-    """
+def make_corrected_wcs_map(
+    map_in: GenericMap,
+    best_params: Dict[str, float],
+    verbose: int = 0,
+    linear_mode: WCSLinearMode = "cd_basis_unit",
+) -> GenericMap:
     dx = float(best_params.get("dx", 0.0))
     dy = float(best_params.get("dy", 0.0))
     sx = float(best_params.get("squeeze_x", 1.0))
@@ -964,14 +1163,15 @@ def make_corrected_wcs_map(map_in: GenericMap, best_params: Dict[str, float]) ->
 
     new_meta = build_corrected_wcs_meta_scale_shift(
         map_in,
-        dx_pix=dx,
-        dy_pix=dy,
-        squeeze_x=sx,
-        squeeze_y=sy,
+        dx_opt=dx,
+        dy_opt=dy,
+        sx_opt=sx,
+        sy_opt=sy,
+        verbose=verbose,
+        linear_mode=linear_mode,
     )
 
-    return sunpy.map.Map(map_in.data, new_meta)
-
+    return sunpy.map.Map(map_in.data, new_meta, plot_settings=map_in.plot_settings)
 
 def find_original_correction(
     corrected_map: GenericMap,
@@ -1072,7 +1272,7 @@ def optimize_alignment_local_grad(
     - Step sizes:
         * per-parameter initial steps: step_dx0, step_dy0, step_sx0, step_sy0
         * per-parameter minimum steps: min_step_dx, min_step_dy, min_step_sx, min_step_sy
-        * if you want a parameter frozen, set its initial step to 0 (and min to 0).
+        * if wanted a parameter frozen, set its initial step to 0 (and min to 0).
 
     Crucial plateau logic
     ---------------------
@@ -1361,7 +1561,6 @@ from numba import jit
 import numpy as np
 from multiprocessing import Pool
 
-# your 4D neighbour generator
 @jit(nopython=True)
 def fst_neighbors_4d(
     extent: float,
@@ -1525,7 +1724,6 @@ def optimize_alignment_local_grad_disc(
     target_img = np.asarray(target_img, dtype=np.float64)
 
     # ---- precompute normalized integer offsets, ordered by distance ----
-    # sizes all = 1.0 for now; you can make this anisotropic later if you want
     VALs = fst_neighbors_4d(
         neighbor_extent,
         size0=1.0,
@@ -1859,7 +2057,7 @@ def optimize_alignment_local_grad_disc(
 
 
 
-from multiprocessing import Process, Queue
+from help_funcs import _vprint
 
 def _corr_worker_loop(
     ref_img: np.ndarray,
@@ -1867,6 +2065,7 @@ def _corr_worker_loop(
     center: Optional[Tuple[float, float]],
     task_queue: Queue,
     result_queue: Queue,
+    verbose: int = 0,
 ) -> None:
     """
     Persistent worker:
@@ -1878,6 +2077,7 @@ def _corr_worker_loop(
     - For each job, compute corr and send (job_id, corr) back.
     """
     while True:
+        _vprint(verbose, 2, "Worker waiting for task...")
         task = task_queue.get()
         if task is None:
             # sentinel: time to stop this worker
@@ -1983,7 +2183,7 @@ def optimize_alignment_local_grad_disc_persworkers(
     # step sizes per component
     step = np.array([step_dx0, step_dy0, step_sx0, step_sy0], dtype=float)
 
-    # 🔒 collapse offsets along frozen dimensions (step == 0)
+    # collapse offsets along frozen dimensions (step == 0)
     normalized_offsets = collapse_normalized_offsets_for_frozen_dims(
         normalized_offsets,
         step,
@@ -2363,8 +2563,8 @@ def optimize_alignment_local_grad_disc_persworkers(
                 proc.join()
 
 def update_raster_coordinates(
-    raster_set: List[SPICEL3Raster],
-    new_maps: List[Map],
+    raster_set: List['SPICEL3Raster'],
+    new_maps: List[GenericMap],
     histories: List[np.ndarray],
     redo: bool = False,
     verbose: int = 0,

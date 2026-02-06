@@ -122,3 +122,155 @@ Workflow (conceptual):
 - Bounds and frozen parameters are enforced per dimension; use zero step sizes to lock parameters.
 - Parallel mode uses persistent workers; wrap calls under `if __name__ == "__main__":` in scripts to avoid multiprocessing issues.
 
+
+# Mathematical justification: pixel-domain correction encoded as a WCS update
+
+This document provides a mathematical proof that the WCS-only update implemented by
+`build_corrected_wcs_meta_scale_shift` (and used by `make_corrected_wcs_map`) encodes
+exactly the same pixel-domain affine correction used during cross-correlation, without
+any resampling of the data array.
+
+## Notation
+
+Let pixel coordinates be column vectors:
+
+```math
+P=\begin{bmatrix}p_1\\p_2\end{bmatrix},\qquad
+P^0=\begin{bmatrix}\mathrm{CRPIX1}\\\mathrm{CRPIX2}\end{bmatrix}
+```
+
+Let world coordinates (helioprojective components, in header units) be:
+
+```math
+X=\begin{bmatrix}x_1\\x_2\end{bmatrix},\qquad
+X^0=\begin{bmatrix}\mathrm{CRVAL1}\\\mathrm{CRVAL2}\end{bmatrix}
+```
+
+Define the linear WCS matrix:
+
+```math
+M = S\,PC,\qquad
+S=\mathrm{diag}(\mathrm{CDELT1},\mathrm{CDELT2})
+```
+
+so that the linear WCS mapping is:
+
+```math
+X = X^0 + M\,(P-P^0).
+\tag{1}
+```
+
+## Pixel-domain transform optimized by correlation
+
+The optimizer searches over an affine transform in pixel space, expressed about the
+reference pixel `CRPIX`:
+
+```math
+P' = P^0 + \Delta S\,(P-P^0) + \Delta,
+\tag{2}
+```
+
+with:
+
+```math
+\Delta S = \mathrm{diag}(s_x,s_y),\qquad
+\Delta=\begin{bmatrix}\Delta x\\ \Delta y\end{bmatrix}.
+```
+
+## Invariance condition defining the corrected WCS
+
+The corrected WCS is defined by requiring that the same physical point is represented
+before and after correction:
+
+```math
+\mathrm{WCS}_{\mathrm{old}}(P) \equiv \mathrm{WCS}_{\mathrm{new}}(P')
+\quad\text{for all }P.
+\tag{3}
+```
+
+Assume the corrected WCS has the same linear form:
+
+```math
+\mathrm{WCS}_{\mathrm{new}}(Q) = X^{0'} + M'\,(Q-P^{0'}),
+\tag{4}
+```
+
+and choose to keep the reference pixel fixed:
+
+```math
+P^{0'} = P^0.
+\tag{5}
+```
+
+## Derivation of the corrected linear matrix
+
+Substitute (2) and (5) into (4), and equate with (1) using (3):
+
+```math
+X^0 + M\,(P-P^0)
+=
+X^{0'} + M'\big(\Delta S\,(P-P^0) + \Delta\big).
+```
+
+Rearranging gives:
+
+```math
+X^0 + M\,(P-P^0)
+=
+X^{0'} + (M'\Delta S)(P-P^0) + M'\Delta.
+\tag{6}
+```
+
+Matching the linear terms yields:
+
+```math
+M = M'\Delta S
+\quad\Longrightarrow\quad
+M' = M(\Delta S)^{-1}.
+\tag{7}
+```
+
+## Derivation of the corrected reference world coordinate
+
+Matching the constant terms yields:
+
+```math
+X^0 = X^{0'} + M'\Delta
+\quad\Longrightarrow\quad
+X^{0'} = X^0 - M'\Delta.
+\tag{8}
+```
+
+## Factorization back into FITS WCS keywords
+
+Let the columns of `M'` be `m'_1` and `m'_2`. Define:
+
+```math
+\mathrm{CDELT1}' = \|m'_1\|,\qquad
+\mathrm{CDELT2}' = \|m'_2\|,
+\tag{9}
+```
+
+and:
+
+```math
+PC' =
+\left[
+\frac{m'_1}{\|m'_1\|}
+\;\;
+\frac{m'_2}{\|m'_2\|}
+\right].
+\tag{10}
+```
+
+Then:
+
+```math
+\mathrm{diag}(\mathrm{CDELT1}',\mathrm{CDELT2}')\,PC' = M'.
+```
+
+## Conclusion
+
+Equations (7)–(8) prove that updating the linear WCS matrix and reference world
+coordinate while keeping `CRPIX` fixed is sufficient and necessary to encode the
+pixel-domain shift/scale correction entirely within the WCS metadata.
