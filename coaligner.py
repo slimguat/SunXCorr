@@ -53,86 +53,86 @@ from slimfunc_correlation_effort import (
 class Coaligner:
   """Three-phase solar image coalignment pipeline with adaptive optimization.
 
-  The Coaligner implements a sophisticated multi-phase approach to align solar images
-  (typically SPICE rasters with EUI/FSI reference maps) through progressive refinement:
-  
-  1. **Binning Phase**: Coarse alignment using spatially binned maps for speed
-  2. **One-Map Phase**: Fine alignment using full-resolution single reference map  
-  3. **Synthetic Raster Phase**: Optimal alignment by generating synthetic rasters
-     from multiple FSI images spanning the raster observation time
-  
-  Each phase uses a discrete gradient-based stochastic optimizer with persistent
-  worker processes for efficient parallel correlation evaluation.
+    The Coaligner implements a sophisticated multi-phase approach to align solar images
+    (typically SPICE rasters with EUI/FSI reference maps) through progressive refinement:
+    
+    1. **Binning Phase**: Coarse alignment using spatially binned maps for speed
+    2. **One-Map Phase**: Fine alignment using full-resolution single reference map  
+    3. **Synthetic Raster Phase**: Optimal alignment by generating synthetic rasters
+      from multiple FSI images spanning the raster observation time
+    
+    Each phase uses a discrete gradient-based stochastic optimizer with persistent
+    worker processes for efficient parallel correlation evaluation.
 
-  Key Features
-  ------------
-  - Persistent worker pool for parallel correlation computation
-  - Adaptive debug plotting (2 or 3 axes depending on scale optimization)
-  - Blink animation GIFs showing before/after correction per phase
-  - Automatic synthetic raster generation from FSI image sequences
-  - Plateau-based step size adaptation with graceful convergence
+    Key Features
+    ------------
+    - Persistent worker pool for parallel correlation computation
+    - Adaptive debug plotting (2 or 3 axes depending on scale optimization)
+    - Blink animation GIFs showing before/after correction per phase
+    - Automatic synthetic raster generation from FSI image sequences
+    - Plateau-based step size adaptation with graceful convergence
 
-  Attributes
-  ----------
-  map_to_coalign : GenericMap
-      The target map to be aligned (typically SPICE raster)
-  reference_map : GenericMap
-      Single reference map for phases 1 and 2 (typically EUI FSI 174)
-  list_of_reference_maps : list of GenericMap, optional
-      Multiple FSI images for synthetic raster generation (phase 3)
-  procedures : dict
-      Tracking which phases have been executed
-  results : dict
-      Results dictionary for each phase containing best parameters and correlation
-  best_params : dict, optional
-      Final WCS parameters after all executed phases
-  
-  Notes
-  -----
-  The coalignment is applied progressively: each phase refines the results from
-  the previous phase. The workflow typically follows:
-  
-  1. Initialize Coaligner with SPICE raster and FSI reference
-  2. Call `run_binning_xcorr()` for coarse alignment
-  3. Call `run_one_map_xcorr()` for refined alignment
-  4. Call `run_synthetic_raster_xcorr()` for final high-precision alignment
-  5. Access corrected WCS parameters via `best_params` attribute
-  
-  The optimizer uses correlation as the objective function, with adaptive step
-  sizes that shrink when correlation plateaus. This ensures convergence while
-  avoiding premature stopping in noisy correlation landscapes.
-  
-  Examples
-  --------
-  >>> from coaligner import Coaligner
-  >>> import sunpy.map
-  >>> 
-  >>> # Load maps
-  >>> spice_map = sunpy.map.Map('spice_raster.fits')
-  >>> fsi_map = sunpy.map.Map('eui_fsi_174.fits')
-  >>> 
-  >>> # Initialize coaligner  
-  >>> aligner = Coaligner(
-  ...     map_to_coalign=spice_map,
-  ...     reference_map=fsi_map,
-  ...     verbose=1,
-  ...     n_jobs=8
-  ... )
-  >>> 
-  >>> # Run three-phase alignment
-  >>> aligner.run_binning_xcorr()
-  >>> aligner.run_one_map_xcorr()
-  >>> aligner.run_synthetic_raster_xcorr()
-  >>> 
-  >>> # Access corrected WCS
-  >>> corrected_wcs = aligner.best_params
-  >>> print(f"Final correlation: {aligner.results['synthetic_raster']['best_corr']}")
+    Attributes
+    ----------
+    map_to_coalign : GenericMap
+        The target map to be aligned (typically SPICE raster)
+    reference_map : GenericMap
+        Single reference map for phases 1 and 2 (typically EUI FSI 174)
+    list_of_reference_maps : list of GenericMap, optional
+        Multiple FSI images for synthetic raster generation (phase 3)
+    procedures : dict
+        Tracking which phases have been executed
+    results : dict
+        Results dictionary for each phase containing best parameters and correlation
+    best_params : dict, optional
+        Final WCS parameters after all executed phases
+    
+    Notes
+    -----
+    The coalignment is applied progressively: each phase refines the results from
+    the previous phase. The workflow typically follows:
+    
+    1. Initialize Coaligner with SPICE raster and FSI reference
+    2. Call `run_binning_xcorr()` for coarse alignment
+    3. Call `run_one_map_xcorr()` for refined alignment
+    4. Call `run_synthetic_raster_xcorr()` for final high-precision alignment
+    5. Access corrected WCS parameters via `best_params` attribute
+    
+    The optimizer uses correlation as the objective function, with adaptive step
+    sizes that shrink when correlation plateaus. This ensures convergence while
+    avoiding premature stopping in noisy correlation landscapes.
+    
+    Examples
+    --------
+    >>> from coaligner import Coaligner
+    >>> import sunpy.map
+    >>> 
+    >>> # Load maps
+    >>> spice_map = sunpy.map.Map('spice_raster.fits')
+    >>> fsi_map = sunpy.map.Map('eui_fsi_174.fits')
+    >>> 
+    >>> # Initialize coaligner  
+    >>> aligner = Coaligner(
+    ...     map_to_coalign=spice_map,
+    ...     reference_map=fsi_map,
+    ...     verbose=1,
+    ...     n_jobs=8
+    ... )
+    >>> 
+    >>> # Run three-phase alignment
+    >>> aligner.run_binning_xcorr()
+    >>> aligner.run_one_map_xcorr()
+    >>> aligner.run_synthetic_raster_xcorr()
+    >>> 
+    >>> # Access corrected WCS
+    >>> corrected_wcs = aligner.best_params
+    >>> print(f"Final correlation: {aligner.results['synthetic_raster']['best_corr']}")
 
-  See Also
-  --------
-  coalign_debug.DebugPlotContext : Debug visualization context
-  coalign_helpers.compute_gradient_step_nd : Gradient computation for optimizer
-  coalign_workers.corr_worker_loop : Persistent correlation worker
+    See Also
+    --------
+    coalign_debug.DebugPlotContext : Debug visualization context
+    coalign_helpers.compute_gradient_step_nd : Gradient computation for optimizer
+    coalign_workers.corr_worker_loop : Persistent correlation worker
   """
 
   def __init__(
@@ -509,10 +509,6 @@ class Coaligner:
       if session_managed_here:
         self._pop_debug_session()
 
-  def run_binned_cross_correlation(self) -> None:
-    """Alias for run_binned_xcorr(). Use run_binned_xcorr() instead."""
-    self.run_binned_xcorr()
-
   def run_binned_xcorr(self) -> None:
     """Execute Phase 1: Coarse coalignment using spatially binned maps.
     
@@ -580,6 +576,88 @@ class Coaligner:
       best_shift=best_point,
     )
     self._finalize_phase_result("binning", search_result, corrected_payload)
+  
+  def run_one_map_xcorr(
+    self,
+    seed_shift: Tuple[float, float] | None = None,
+  ) -> None:
+    """Execute Phase 2: Fine coalignment using full-resolution single reference map.
+    
+    This phase refines the coarse alignment from Phase 1 by:
+    
+    - Using full-resolution maps (no binning)
+    - Starting from Phase 1 results (or custom seed_shift)
+    - Searching a smaller shift range with finer steps
+    - Optimizing 2D shift only (no scale adjustment yet)
+    
+    The phase automatically:
+    1. Uses the corrected map from Phase 1 as the starting point
+    2. Expands target FOV to accommodate remaining misalignment
+    3. Reprojects reference onto the extended target grid
+    4. Runs 2D discrete gradient optimizer at full resolution
+    5. Generates debug PDF and blink GIF showing before/after
+    
+    Results are stored in `self.results['one_map']` and used as initialization
+    for Phase 3 (synthetic raster) alignment.
+
+    Parameters
+    ----------
+    seed_shift : tuple of float, optional
+        Custom (dx, dy) shift to use as starting point instead of Phase 1 results.
+        Useful for testing or when Phase 1 was not run. If None, uses results
+        from `run_binned_xcorr()`.
+
+    Raises
+    ------
+    RuntimeError
+        If Phase 1 was not run and seed_shift is not provided.
+    ValueError
+        If maps have insufficient overlap after shift correction.
+
+    Notes
+    -----
+    This phase typically refines the Phase 1 shift by a few pixels. The default
+    search range is ±10 pixels, which is usually sufficient. Customize parameters:
+    
+    >>> aligner.xcorr_one_map_kwargs['shift_range'] = (15, 15)  # wider search
+    >>> aligner.run_one_map_xcorr()
+    
+    The optimizer uses the same discrete gradient approach as Phase 1 but operates
+    at full map resolution, making it ~100x slower but more accurate.
+    
+    Typical execution time: 2-5 minutes on 8 cores for 1024x1024 maps.
+
+    Examples
+    --------
+    Standard workflow (after Phase 1):
+    
+    >>> aligner.run_binned_xcorr()
+    >>> aligner.run_one_map_xcorr()
+    Phase 2 (one_map) complete: dx=0.8, dy=-1.2, corr=0.923
+    
+    Custom starting point:
+    
+    >>> aligner.run_one_map_xcorr(seed_shift=(10.0, -5.0))
+
+    See Also
+    --------
+    prepare_one_map_data : Prepares full-resolution maps (called automatically)
+    run_binned_xcorr : Phase 1 coarse alignment (should run first)
+    run_synthetic_raster_xcorr : Phase 3 refinement with scale optimization
+    _run_shift_search : Core 2D shift optimizer
+    """
+    self.prepare_one_map_data(seed_shift=seed_shift)
+    search_result, best_point = self._run_shift_search("one_map")
+    corrected_payload = self._build_corrected_target_map(
+      target_map=self._latest_one_map_base_map or self.map_to_coalign,
+      extended_target_map=self.xcorr_one_map_kwargs.get('extended_target_map'),
+      pad_x=int(self.xcorr_one_map_kwargs.get('pad_x') or 0),
+      pad_y=int(self.xcorr_one_map_kwargs.get('pad_y') or 0),
+      kernel=(1, 1),
+      best_shift=best_point,
+    )
+    self._finalize_phase_result("one_map", search_result, corrected_payload)
+
   
   def _run_shift_scale_search(
     self,
@@ -1003,7 +1081,8 @@ class Coaligner:
         "phase": "plateau" if search_phase == 2 else "search",
       }
       ref_map_obj = cfg.get('reprojected_reference_on_extended_target_map')
-      target_map_obj = cfg.get('extended_target_map')
+      # target_map_obj = cfg.get('extended_target_map')
+      target_map_obj = self.map_to_coalign
       if debug_ctx is not None and cache:
         # Render history plot (adaptive based on whether scale varies)
         history_array = np.array([[i, h['dx'], h['dy'], h['sx'], h['sy'], h['corr']] for i, h in enumerate(history)], dtype=float)
@@ -1056,93 +1135,6 @@ class Coaligner:
       if session_started_here:
         self._pop_debug_session()
 
-  def run_one_map_cross_correlation(
-    self,
-    seed_shift: Tuple[float, float] | None = None,
-  ) -> None:
-    """Alias for run_one_map_xcorr(). Use run_one_map_xcorr() instead."""
-    self.run_one_map_xcorr(seed_shift=seed_shift)
-
-  def run_one_map_xcorr(
-    self,
-    seed_shift: Tuple[float, float] | None = None,
-  ) -> None:
-    """Execute Phase 2: Fine coalignment using full-resolution single reference map.
-    
-    This phase refines the coarse alignment from Phase 1 by:
-    
-    - Using full-resolution maps (no binning)
-    - Starting from Phase 1 results (or custom seed_shift)
-    - Searching a smaller shift range with finer steps
-    - Optimizing 2D shift only (no scale adjustment yet)
-    
-    The phase automatically:
-    1. Uses the corrected map from Phase 1 as the starting point
-    2. Expands target FOV to accommodate remaining misalignment
-    3. Reprojects reference onto the extended target grid
-    4. Runs 2D discrete gradient optimizer at full resolution
-    5. Generates debug PDF and blink GIF showing before/after
-    
-    Results are stored in `self.results['one_map']` and used as initialization
-    for Phase 3 (synthetic raster) alignment.
-
-    Parameters
-    ----------
-    seed_shift : tuple of float, optional
-        Custom (dx, dy) shift to use as starting point instead of Phase 1 results.
-        Useful for testing or when Phase 1 was not run. If None, uses results
-        from `run_binned_xcorr()`.
-
-    Raises
-    ------
-    RuntimeError
-        If Phase 1 was not run and seed_shift is not provided.
-    ValueError
-        If maps have insufficient overlap after shift correction.
-
-    Notes
-    -----
-    This phase typically refines the Phase 1 shift by a few pixels. The default
-    search range is ±10 pixels, which is usually sufficient. Customize parameters:
-    
-    >>> aligner.xcorr_one_map_kwargs['shift_range'] = (15, 15)  # wider search
-    >>> aligner.run_one_map_xcorr()
-    
-    The optimizer uses the same discrete gradient approach as Phase 1 but operates
-    at full map resolution, making it ~100x slower but more accurate.
-    
-    Typical execution time: 2-5 minutes on 8 cores for 1024x1024 maps.
-
-    Examples
-    --------
-    Standard workflow (after Phase 1):
-    
-    >>> aligner.run_binned_xcorr()
-    >>> aligner.run_one_map_xcorr()
-    Phase 2 (one_map) complete: dx=0.8, dy=-1.2, corr=0.923
-    
-    Custom starting point:
-    
-    >>> aligner.run_one_map_xcorr(seed_shift=(10.0, -5.0))
-
-    See Also
-    --------
-    prepare_one_map_data : Prepares full-resolution maps (called automatically)
-    run_binned_xcorr : Phase 1 coarse alignment (should run first)
-    run_synthetic_raster_xcorr : Phase 3 refinement with scale optimization
-    _run_shift_search : Core 2D shift optimizer
-    """
-    self.prepare_one_map_data(seed_shift=seed_shift)
-    search_result, best_point = self._run_shift_search("one_map")
-    corrected_payload = self._build_corrected_target_map(
-      target_map=self._latest_one_map_base_map or self.map_to_coalign,
-      extended_target_map=self.xcorr_one_map_kwargs.get('extended_target_map'),
-      pad_x=int(self.xcorr_one_map_kwargs.get('pad_x') or 0),
-      pad_y=int(self.xcorr_one_map_kwargs.get('pad_y') or 0),
-      kernel=(1, 1),
-      best_shift=best_point,
-    )
-    self._finalize_phase_result("one_map", search_result, corrected_payload)
 
 
   def prepare_binned_data(self) -> None:
@@ -1391,9 +1383,22 @@ class Coaligner:
     return deduped
 
   def _build_synthetic_raster_from_fsi(self, base_map: GenericMap) -> Tuple[GenericMap, List[GenericMap | Path | str]]:
+    _vprint(self.verbose,1,"Building synthetic raster from FSI sequence...")
     sources = self._gather_synthetic_reference_sources(base_map)
+    _vprint(self.verbose, 2, f"Found {len(sources)} FSI source images for synthetic raster")
     if not sources:
       raise RuntimeError("No FSI inputs available to build the synthetic raster.")
+    # Always copy temporal WCS from original SPICE raster to ensure it's present
+    if 'CRVAL3' in self.map_to_coalign.meta:
+      if 'CRVAL3' not in base_map.meta:
+        _vprint(self.verbose, -1, "Copying temporal WCS keywords from original SPICE raster to base map.")
+      base_map.meta['CRVAL3'] = self.map_to_coalign.meta.get('CRVAL3', 0.0)
+      base_map.meta['CDELT3'] = self.map_to_coalign.meta.get('CDELT3', 1.0)
+      base_map.meta['CRPIX3'] = self.map_to_coalign.meta.get('CRPIX3', 1.0)
+      base_map.meta['CUNIT3'] = self.map_to_coalign.meta.get('CUNIT3', 's')
+      base_map.meta['PC3_1']  = self.map_to_coalign.meta.get('PC3_1', 0.0)
+      base_map.meta['PC3_2']  = self.map_to_coalign.meta.get('PC3_2', 0.0)
+      base_map.meta['PC3_3']  = self.map_to_coalign.meta.get('PC3_3', 1.0)
     verbose_level = max(0, int(self.verbose))
     synthetic_map = build_synthetic_raster_from_maps(
       base_map,
@@ -1671,7 +1676,9 @@ class Coaligner:
     if self._shared_debug_writer is not None and corrected_extended is not None:
       cfg = self.xcorr_binned_kwargs if phase_key == 'binning' else self.xcorr_one_map_kwargs
       ref_map = cfg.get('reprojected_reference_on_extended_target_map')
-      target_map = cfg.get('extended_target_map')
+      # target_map = cfg.get('extended_target_map')
+      target_map = self.map_to_coalign
+      
       if isinstance(ref_map, GenericMap) and isinstance(target_map, GenericMap):
         from coalign_debug import DebugPlotContext
         # Create temporary debug context for animation rendering
@@ -1720,7 +1727,7 @@ class Coaligner:
     scale_x_value: float = float(cfg.get('scale_x', 1.0))
     scale_y_value: float = float(cfg.get('scale_y', 1.0))
     n_neighbors: int = max(1, int(cfg.get('n_neighbors') or self.n_jobs * 10))
-    n_jobs: int = max(1, int(self.n_jobs))
+    # n_jobs: int = max(1, int(self.n_jobs))
     max_corr_goal: float = float(cfg.get('max_corr', 0.7 if phase_key == 'binning' else -1.0))
     force_plateau = max_corr_goal < 0.0
     if force_plateau:

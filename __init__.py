@@ -1,11 +1,11 @@
 """Solar Coalignment Library.
 
-A Python library for high-precision coalignment of solar spectroscopic 
-rasters with photometric reference images using cross-correlation optimization.
+A Python library for high-precision coalignment of radince maps raster scan map and normal single exposure images using cross-correlation optimization. 
+This packag is proven for cross-correlating SOLAR ORBITER/SPICE with SOLAR ORBITER/FSI but is designed to be flexible for other solar image alignment tasks.
 """
 
 __version__ = '1.0.0'
-__author__ = 'Salim Zergua'
+__author__ = 'Slimane Mzerguat'
 
 from .coaligner import Coaligner
 from .slimfunc_correlation_effort import (

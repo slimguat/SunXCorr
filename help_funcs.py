@@ -18,6 +18,7 @@ import numpy as np
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
+import astropy
 import sunpy
 import sunpy.map.maputils
 from sunpy.map import GenericMap, Map
@@ -41,6 +42,7 @@ from astropy.visualization import (
     stretch,
 )
 from saffron.utils import normit
+import os
 __all__: list[str] = [
     "to_submap",
     "get_EUI_paths",
@@ -742,14 +744,27 @@ def _pixel_world_with_optional_time(
     wcs_obj: WCS,
     xx: np.ndarray,
     yy: np.ndarray,
-) -> tuple[SkyCoord, Any | None]:
+) -> tuple[SkyCoord, astropy.time.core.Time | None]:
     pixel_inputs: list[Any] = [xx * u.pix, yy * u.pix]
     if getattr(wcs_obj, "pixel_n_dim", 2) >= 3:
         pixel_inputs.append(np.zeros_like(xx))
     world_result = wcs_obj.pixel_to_world(*pixel_inputs)
-    if isinstance(world_result, tuple):
-        coords_spice = cast(SkyCoord, world_result[0])
-        time_payload = world_result[1] if len(world_result) > 1 else None
+    # Check if result is a sequence with time/temporal component
+    if isinstance(world_result, (tuple, list)) and len(world_result) > 1:
+        if isinstance(world_result[1], astropy.time.core.Time):
+            coords_spice : SkyCoord = cast(SkyCoord, world_result[0])
+            time_payload : astropy.time.core.Time = world_result[1]
+        elif isinstance(world_result[1], u.Quantity):
+            # Temporal WCS was added manually - convert Quantity to Time if possible
+            coords_spice : SkyCoord = cast(SkyCoord, world_result[0])
+            try:
+                # Try to convert Quantity to Time using map's reference time
+                time_payload = astropy.time.Time(world_result[1], format='mjd', scale='utc')
+            except Exception:
+                time_payload = None
+        else:
+            coords_spice = cast(SkyCoord, world_result[0] if len(world_result) > 0 else world_result)
+            time_payload = None
     else:
         coords_spice = cast(SkyCoord, world_result)
         time_payload = None
@@ -874,7 +889,7 @@ def build_synthetic_raster_from_maps_parallel(
     step_times: Sequence[np.datetime64] | None = None,
     threshold_time: np.timedelta64 | None = None,
     order: int = 2,
-    n_jobs: int = 1,
+    n_jobs: int = os.cpu_count(),
     verbose: int = 0,
 ) -> GenericMap:
     """
@@ -887,7 +902,9 @@ def build_synthetic_raster_from_maps_parallel(
         raise ValueError("fsi_maps must be non-empty")
 
     _vprint(verbose, 1, f"Building synthetic raster in parallel with n_jobs={n_jobs}")
-
+    _vprint(verbose, 2, f"SPICE map shape: {spice_map.data.shape}")
+    _vprint(verbose, 2, f"FSI maps count: {len(fsi_maps)}")
+    _vprint(verbose, 2, f"n_jobs: {n_jobs}")
     ny, nx = spice_map.data.shape
 
     fsi_entries: list[Union[GenericMap, Path, str]] = []

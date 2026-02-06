@@ -139,12 +139,7 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Filename token that excludes a raster when auto-searching (repeatable).",
     )
-    parser.add_argument(
-        "--synthetic-neighbors",
-        type=int,
-        default=50,
-        help="Neighbor budget per iteration for the synthetic phase.",
-    )
+    
     parser.add_argument(
         "--synthetic-scale-range",
         type=float,
@@ -261,7 +256,6 @@ def main() -> int:
         coaligner.synthetic_kwargs["reference_channel_keyword"] = args.synthetic_reference_keyword
     if args.synthetic_reference_exclude:
         coaligner.synthetic_kwargs["reference_exclude_tokens"] = tuple(args.synthetic_reference_exclude)
-    coaligner.synthetic_kwargs["n_neighbors"] = args.synthetic_neighbors
     if args.synthetic_scale_range is not None:
         coaligner.synthetic_kwargs["scale_range"] = tuple(float(val) for val in args.synthetic_scale_range)
     if args.synthetic_scale_step is not None:
