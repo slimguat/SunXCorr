@@ -1,4 +1,4 @@
-"""Quick test to verify blink comparison rendering works."""
+"""Quick test to verify comparison animation rendering works."""
 
 import numpy as np
 import matplotlib
@@ -25,7 +25,7 @@ def mock_get_coord_mat(map_obj):
 
 # Test the blink comparison logic
 def test_blink_comparison():
-    """Test that blink comparison frames can be generated."""
+    """Test that comparison animation frames can be generated."""
     
     # Create synthetic maps
     ny, nx = 50, 50
@@ -68,16 +68,16 @@ def test_blink_comparison():
                     owns_writer=False,
                 )
                 
-                # Render blink comparison
-                ctx.render_blink_comparison(ref_map, target_map, corrected_map, phase_name="test", n_cycles=2)
+                # Render comparison animation
+                ctx.render_comparison_animation(ref_map, target_map, corrected_map, phase_name="test", n_cycles=2)
             
             # Check GIF was created
-            gif_files = list(Path(tmpdir).glob("blink_comparison_test_*.gif"))
+            gif_files = list(Path(tmpdir).glob("comparison_animation_test_*.gif"))
             assert len(gif_files) > 0, "GIF file should be created"
             gif_path = gif_files[0]
             assert gif_path.stat().st_size > 1000, "GIF should have content"
             
-            print(f"✓ Blink comparison rendered successfully")
+            print(f"✓ Comparison animation rendered successfully")
             print(f"  GIF: {gif_path.stat().st_size / 1024:.1f} KB at {gif_path.name}")
             
     finally:
@@ -85,6 +85,6 @@ def test_blink_comparison():
         coalign_debug.get_coord_mat = original_get_coord_mat
 
 if __name__ == "__main__":
-    print("Testing blink comparison rendering...")
+    print("Testing comparison animation rendering...")
     test_blink_comparison()
-    print("✅ Blink comparison test passed!")
+    print("✅ Comparison animation test passed!")
