@@ -26,7 +26,25 @@ from help_funcs import get_coord_mat, normit
 
 
 def _build_scatter_colormap() -> LinearSegmentedColormap:
-  """Grey-to-vibrant ramp emphasizing detail above 0.5 correlation."""
+  """Build a custom colormap for cross-correlation scatter plots.
+  
+  Creates a colormap that transitions from grey (low correlation) to vibrant
+  colors (high correlation), with emphasis on detail above 0.5 correlation.
+  The colormap is designed to make high-quality correlation matches stand out
+  visually in diagnostic plots.
+  
+  Returns
+  -------
+  LinearSegmentedColormap
+      Custom colormap with 16 color stops ranging from dark grey (#1a1a1a)
+      to vibrant cyan (#00f5ff), with intermediate rainbow colors.
+  
+  Notes
+  -----
+  The colormap is cached as SCATTER_COLORMAP for reuse across multiple plots.
+  Color stops are positioned to emphasize the 0.5-1.0 correlation range where
+  meaningful alignment matches are typically found.
+  """
   color_stops = [
     (0.0, "#1a1a1a"),
     (0.2, "#595959"),
@@ -52,7 +70,48 @@ SCATTER_COLORMAP = _build_scatter_colormap()
 
 @dataclass
 class DebugPlotContext:
-  """Collects scatter points and writes them plus overlays to a PDF file."""
+  """Debug visualization context for cross-correlation optimization.
+  
+  This class manages incremental PDF output during the coalignment search,
+  collecting correlation samples and rendering them as scatter plots with
+  overlays. It provides methods to visualize the progression of the optimizer
+  through parameter space and compare before/after alignment results.
+  
+  Attributes
+  ----------
+  pdf_writer : PdfPages
+      Matplotlib PDF writer for multi-page output
+  fig : plt.Figure
+      Main figure for scatter plots
+  ax : plt.Axes
+      Axes for scatter plot rendering
+  color_mappable : ScalarMappable
+      Colormap mapping for correlation values
+  debug_points : List[Tuple[int, int, float]]
+      Collected (dx, dy, correlation) samples
+  plotted_points : Set[Tuple[int, int]]
+      Set of already-plotted (dx, dy) coordinates
+  pdf_path : Path
+      Output path for the PDF file
+  owns_writer : bool, default=True
+      Whether to close the PDF writer on exit
+  point_radius_x_data : float, default=0.5
+      Marker radius in x-direction (data coordinates)
+  point_radius_y_data : float, default=0.5
+      Marker radius in y-direction (data coordinates)
+  marker_patches : List[Rectangle], default=[]
+      Rectangle patches representing correlation samples
+  
+  Notes
+  -----
+  The context is typically created using `create_debug_context()` rather than
+  direct instantiation. It maintains a persistent PDF file that accumulates
+  diagnostic plots as the optimizer progresses.
+  
+  See Also
+  --------
+  create_debug_context : Factory function to create configured contexts
+  """
 
   pdf_writer: PdfPages
   fig: plt.Figure
@@ -67,7 +126,22 @@ class DebugPlotContext:
   marker_patches: List[Rectangle] = field(default_factory=list)
 
   def add_point(self, dx: int, dy: int, corr_val: float) -> None:
-    """Record a correlation sample if it has not been plotted yet."""
+    """Record a correlation sample if it has not been plotted yet.
+    
+    Parameters
+    ----------
+    dx : int
+        X-direction shift in pixels
+    dy : int
+        Y-direction shift in pixels
+    corr_val : float
+        Correlation coefficient value (typically 0.0 to 1.0)
+    
+    Notes
+    -----
+    Duplicate points at the same (dx, dy) location are ignored to avoid
+    cluttering the visualization with redundant samples.
+    """
     key = (dx, dy)
     if key in self.plotted_points:
       return
@@ -75,7 +149,24 @@ class DebugPlotContext:
     self.debug_points.append((dx, dy, corr_val))
 
   def render_iteration(self, center: Tuple[int, int], phase: int) -> None:
-    """Render the scatter cloud plus current center indicator for one step."""
+    """Render the scatter cloud plus current center indicator for one step.
+    
+    Creates a new page in the PDF showing all accumulated correlation samples
+    as a scatter plot, with the current optimization center highlighted.
+    
+    Parameters
+    ----------
+    center : Tuple[int, int]
+        Current (dx, dy) position of the optimizer
+    phase : int
+        Current search phase (1=search, 2=plateau)
+    
+    Notes
+    -----
+    The center is marked with a red square outline. Colors indicate correlation
+    strength using the custom SCATTER_COLORMAP. If no points have been added,
+    this method returns immediately without rendering.
+    """
     if not self.debug_points:
       return
     self._remove_non_marker_patches()
@@ -257,7 +348,35 @@ class DebugPlotContext:
       target_map: GenericMap | None = None,
       corrected_map: GenericMap | None = None,
   ) -> None:
-    """Append diagnostic overlays (pixel + WCS frames) to the PDF trace."""
+    """Append diagnostic overlays (pixel + WCS frames) to the PDF trace.
+    
+    Creates a 2x2 grid showing alignment quality in both pixel coordinates
+    and helioprojective (WCS) coordinates, before and after correction.
+    
+    Parameters
+    ----------
+    ref_img : np.ndarray
+        Reference image array
+    target_img : np.ndarray
+        Target image array (uncorrected)
+    best_shift : Tuple[int, int]
+        Optimal (dx, dy) shift found by optimizer
+    ref_map : GenericMap, optional
+        Reference SunPy map with WCS metadata
+    target_map : GenericMap, optional
+        Target SunPy map (uncorrected) with WCS metadata
+    corrected_map : GenericMap, optional
+        Corrected target SunPy map with updated WCS
+    
+    Notes
+    -----
+    If all three maps are provided, renders a 2x2 comparison grid:
+    - Top row: pixel coordinates (before/after)
+    - Bottom row: helioprojective coordinates (before/after)
+    
+    If maps are not provided, renders a simple pixel-space overlay.
+    Contours from the target are overlaid on the reference to show alignment.
+    """
 
     def _finite_range(data: np.ndarray) -> Tuple[float, float]:
       finite_vals = data[np.isfinite(data)]
@@ -544,7 +663,13 @@ class DebugPlotContext:
         pass
 
   def close(self) -> None:
-    """Close both the Matplotlib figure and the PDF writer."""
+    """Close both the Matplotlib figure and the PDF writer.
+    
+    Notes
+    -----
+    Only closes the PDF writer if `owns_writer` is True. The Matplotlib
+    figure is always closed to free memory.
+    """
     if self.owns_writer:
       self.pdf_writer.close()
     plt.close(self.fig)
@@ -561,7 +686,54 @@ def create_debug_context(
   point_radius_data: float = 0.5,
   dpi: int | None = None,
 ) -> DebugPlotContext:
-  """Return a configured `DebugPlotContext` that writes into `debug_dir`."""
+  """Create a configured debug visualization context for coalignment.
+  
+  Factory function that sets up a DebugPlotContext with appropriate figure,
+  axes, colormap, and PDF writer for diagnostic output.
+  
+  Parameters
+  ----------
+  shift_x : int
+      Maximum x-direction shift in pixels (sets plot x-limits)
+  shift_y : int
+      Maximum y-direction shift in pixels (sets plot y-limits)
+  debug_dir : Path
+      Directory for output PDF files
+  pdf_writer : PdfPages, optional
+      Existing PDF writer to reuse. If None, creates a new one.
+  pdf_path : Path, optional
+      Path for PDF output. Required if pdf_writer is provided.
+  close_writer_on_exit : bool, default=True
+      Whether the context should close the PDF writer when closed
+  point_radius_data : float, default=0.5
+      Marker radius in data coordinates
+  dpi : int, optional
+      Figure resolution in dots per inch
+  
+  Returns
+  -------
+  DebugPlotContext
+      Configured context ready for use with optimizer
+  
+  Raises
+  ------
+  ValueError
+      If pdf_writer is provided without pdf_path
+  
+  Examples
+  --------
+  >>> from pathlib import Path
+  >>> ctx = create_debug_context(50, 50, Path('./debug_output'))
+  >>> ctx.add_point(10, 5, 0.82)
+  >>> ctx.render_iteration((10, 5), phase=1)
+  >>> ctx.close()
+  
+  Notes
+  -----
+  The created figure has a 6x6 inch size by default, with a scatter plot
+  spanning [-shift_x-1, shift_x+1] × [-shift_y-1, shift_y+1] in data
+  coordinates. A colorbar is added to indicate correlation strength.
+  """
   if pdf_writer is None:
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     debug_pdf_path = (debug_dir / f"xcorr_debug_{timestamp}.pdf").resolve()
