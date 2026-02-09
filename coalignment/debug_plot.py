@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Set, Tuple
+from typing import List, Set, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,8 +21,17 @@ from sunpy.map import GenericMap
 
 import datetime
 
-from coalign_helpers import phase_label
 from help_funcs import get_coord_mat, normit
+
+
+def phase_label(phase: int) -> str:
+  """Convert phase number to descriptive label."""
+  if phase == 1:
+    return "search"
+  elif phase == 2:
+    return "plateau"
+  else:
+    return f"phase{phase}"
 
 
 def _build_scatter_colormap() -> LinearSegmentedColormap:
@@ -176,18 +185,21 @@ class DebugPlotContext:
     self._sync_marker_rectangles(coords, corrs)
     rect = Rectangle(
       (center[0] - 0.5, center[1] - 0.5),
-      1.0,
-      1.0,
+      0.5,
+      0.5,
       facecolor="none",
       edgecolor="red",
       linewidth=1.0,
     )
     self.ax.add_patch(rect)
+    
+    # Build title with line break for long process labels
     title_parts = []
     if self.process_label:
       title_parts.append(self.process_label)
     title_parts.append(f"Iteration progression · {phase_label(phase)}")
-    self.ax.set_title(" | ".join(title_parts))
+    title = "\n".join(title_parts)
+    self.ax.set_title(title)
     self.pdf_writer.savefig(self.fig)
 
   def render_comparison_animation(
@@ -218,8 +230,6 @@ class DebugPlotContext:
     n_cycles : int, default=5
         Number of animation cycles
     """
-    from slimfunc_correlation_effort import blink_maps
-    
     # Create figure with two subplots side by side
     fig, (ax_before, ax_after) = plt.subplots(1, 2, figsize=(14, 6))
     
@@ -255,11 +265,11 @@ class DebugPlotContext:
     # Add contours for target on reference
     data_tgt = target_map.data[~np.isnan(target_map.data)]
     if data_tgt.size > 0:
-        levels_tgt = np.percentile(data_tgt, [5, 10, 80, 90, 95, 99])
+        levels_tgt = np.percentile(data_tgt, [70, 80, 90, 95, 99])
         cmap_tgt = plt.get_cmap('sdoaia304').reversed()
         im1_contour = ax_before.contour(
             lon_tgt, lat_tgt, target_map.data,
-            levels=levels_tgt, cmap=cmap_tgt, linewidths=0.3, alpha=0.5
+            levels=levels_tgt, cmap=cmap_tgt, linewidths=0.5, alpha=0.5
         )
     
     ax_before.set_xlim(xlim)
@@ -284,11 +294,11 @@ class DebugPlotContext:
     # Add contours for corrected on reference
     data_corr = corrected_map.data[~np.isnan(corrected_map.data)]
     if data_corr.size > 0:
-        levels_corr = np.percentile(data_corr, [5, 10, 80, 90, 95, 99])
+        levels_corr = np.percentile(data_corr, [70, 80, 90, 95, 99])
         cmap_corr = plt.get_cmap('sdoaia304').reversed()
         im2_contour = ax_after.contour(
             lon_corr, lat_corr, corrected_map.data,
-            levels=levels_corr, cmap=cmap_corr, linewidths=0.3, alpha=0.5
+            levels=levels_corr, cmap=cmap_corr, linewidths=0.5, alpha=0.5
         )
     
     ax_after.set_xlim(xlim)
@@ -398,7 +408,7 @@ class DebugPlotContext:
       tgt_vmin, tgt_vmax = _finite_range(tgt_data)
       if np.isclose(tgt_vmin, tgt_vmax):
         tgt_vmax = tgt_vmin + 1.0
-      contour_levels = np.linspace(tgt_vmin, tgt_vmax, 6)
+      contour_levels = np.percentile(tgt_data[np.isfinite(tgt_data)], [70, 80, 90, 95, 99])
 
       ny, nx = ref_data.shape
       yy, xx = np.mgrid[0:ny, 0:nx]
@@ -504,7 +514,7 @@ class DebugPlotContext:
     yy, xx = np.mgrid[0:ny, 0:nx]
     ref_vmin, ref_vmax = _finite_range(ref_img)
     tgt_vmin, tgt_vmax = _finite_range(target_img)
-
+    contour_levels = np.percentile(target_img[np.isfinite(target_img)], [70, 80, 90, 95, 99])
     overlay_fig, overlay_ax = plt.subplots(figsize=(6, 6))
     overlay_ax.pcolormesh(
       xx,
@@ -520,6 +530,7 @@ class DebugPlotContext:
       target_img,
       cmap="magma_r",
       norm=normit(target_img),
+      levels=contour_levels,
     )
     overlay_ax.set_title(f"Reference vs shifted target (dx={shift_dx}, dy={shift_dy})")
     overlay_ax.set_xlabel("x (pixels)")
@@ -577,7 +588,7 @@ class DebugPlotContext:
       plt.colorbar(sc1, ax=axes[0], label="corr")
       
       # sx vs sy colored by corr
-      sc2 = axes[1].scatter(sx, sy, c=corr, cmap="viridis", s=22, alpha=0.8)
+      sc2 = axes[1].scatter(sx, sy, c=corr, cmap="magma", s=22, alpha=0.8)
       axes[1].set_xlabel("sx (scale)")
       axes[1].set_ylabel("sy (scale)")
       axes[1].set_title("sx vs sy (color=corr)")
@@ -585,7 +596,7 @@ class DebugPlotContext:
       plt.colorbar(sc2, ax=axes[1], label="corr")
       
       # corr vs iteration
-      axes[2].plot(iterations, corr, color="tab:blue", lw=1.5, marker="o", markersize=3)
+      axes[2].scatter(iterations, corr, c="tab:blue", s=15, alpha=0.7)
       axes[2].set_xlabel("iteration")
       axes[2].set_ylabel("corr")
       axes[2].set_title("corr vs iteration")
@@ -595,7 +606,7 @@ class DebugPlotContext:
       fig, axes = plt.subplots(1, 2, figsize=(11, 4), constrained_layout=True)
       
       # dx vs dy colored by corr
-      sc1 = axes[0].scatter(dx, dy, c=corr, cmap="viridis", s=22, alpha=0.8)
+      sc1 = axes[0].scatter(dx, dy, c=corr, cmap="magma", s=22, alpha=0.8)
       axes[0].set_xlabel("dx (pixels)")
       axes[0].set_ylabel("dy (pixels)")
       axes[0].set_title("dx vs dy (color=corr)")
@@ -603,7 +614,7 @@ class DebugPlotContext:
       plt.colorbar(sc1, ax=axes[0], label="corr")
       
       # corr vs iteration
-      axes[1].plot(iterations, corr, color="tab:blue", lw=1.5, marker="o", markersize=3)
+      axes[1].scatter(iterations, corr, c="tab:blue", s=15, alpha=0.7)
       axes[1].set_xlabel("iteration")
       axes[1].set_ylabel("corr")
       axes[1].set_title("corr vs iteration")
@@ -635,8 +646,8 @@ class DebugPlotContext:
       )
       rect = Rectangle(
         lower_left,
-        2.0 * self.point_radius_x_data,
-        2.0 * self.point_radius_y_data,
+        1.0 * self.point_radius_x_data,
+        1.0 * self.point_radius_y_data,
         linewidth=0.0,
       )
       rect.set_facecolor(cmap(norm(corr)))

@@ -41,7 +41,6 @@ from astropy.visualization import (
     interval,
     stretch,
 )
-from saffron.utils import normit
 import os
 __all__: list[str] = [
     "to_submap",
@@ -703,7 +702,7 @@ def _extract_map_time(entry: Union[GenericMap, str, Path], verbose: int = 0) -> 
     if date_key is None:
         raise ValueError(f"No DATE-* keyword found in {entry}")
     t = np.datetime64(date_key)
-    _vprint(verbose, 3, f"Map time ({entry}): {t}")
+    _vprint(verbose, 2, f"Map time ({entry.name}): {t}")
     return t
 
 
@@ -854,7 +853,7 @@ def build_synthetic_raster_from_maps(
             fsi_map = entry
         else:
             if idx not in fsi_cache:
-                _vprint(verbose, 3, f"Loading FSI map idx {idx} from {entry}")
+                _vprint(verbose, 2, f"Loading FSI map idx {idx} from {entry.name}")
                 fsi_cache[idx] = Map(entry)
             fsi_map = fsi_cache[idx]
 
@@ -1117,4 +1116,58 @@ def build_synthetic_raster_multiproc(
 
     return GenericMap(data_composed, hdr, plot_settings=plot_settings)
 
+
+def no_nan_uniform_filter(
+    data: np.ndarray,
+    remove_percentile: float = 100,
+    *args,
+    **kwargs,
+) -> np.ndarray:
+    """Apply uniform filter while masking outliers and preserving NaN regions.
+    
+    Wraps scipy.ndimage.uniform_filter with preprocessing to handle NaN values
+    and optionally remove extreme outliers before smoothing.
+    
+    Parameters
+    ----------
+    data : np.ndarray
+        Input array to filter
+    remove_percentile : float, default=100
+        Percentile threshold for outlier removal (0-100).
+        Values above this percentile are masked as NaN before filtering.
+        Use 100 to disable outlier removal.
+    *args
+        Additional positional arguments passed to uniform_filter
+        (typically filter size)
+    **kwargs
+        Additional keyword arguments passed to uniform_filter
+        (mode, cval, etc.)
+    
+    Returns
+    -------
+    np.ndarray
+        Smoothed array with original NaN locations preserved
+    
+    Notes
+    -----
+    The function performs these steps:
+    1. Identify values above remove_percentile and mark as NaN
+    2. Create binary mask of NaN locations
+    3. Fill NaN locations with 0.0 for filtering
+    4. Apply uniform_filter to filled array
+    5. Restore NaN mask in output
+    
+    This approach prevents NaN propagation during filtering while preserving
+    the locations where data is genuinely missing. Useful for smoothing solar
+    images that may contain hot pixels or detector artifacts.
+    """
+    from scipy.ndimage import uniform_filter
+    
+    data_percentile: float = cast(float, np.nanpercentile(data, remove_percentile))
+    data_cleaned: np.ndarray = np.where(data > data_percentile, np.nan, data)
+    nan_mask: np.ndarray = np.isnan(data_cleaned)
+    data_filled: np.ndarray = np.where(nan_mask, 0.0, data_cleaned)
+    filtered_data: np.ndarray = uniform_filter(data_filled, *args, **kwargs)
+    filtered_data[nan_mask] = np.nan
+    return filtered_data
 
