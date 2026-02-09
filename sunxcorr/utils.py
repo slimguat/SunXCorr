@@ -1,26 +1,949 @@
 """Utility functions for coalignment processes."""
-
-from typing import Tuple
-
+import re
+import datetime
 import numpy as np
+from numpy.typing import NDArray
+from typing import Any, Tuple, Union, cast, Sequence, List, Dict, Iterable, Literal
+import astropy
 import astropy.units as u
-from sunpy.map import GenericMap
-# from scipy.ndimage import uniform_filter
+from astropy.io import fits 
+from astropy.wcs import WCS
+from astropy.coordinates import SkyCoord
+from astropy.visualization import (
+    SqrtStretch,
+    AsymmetricPercentileInterval,
+    ImageNormalize,
+    interval,
+    stretch,
+)
+from sunpy.map import GenericMap,Map
 import sunpy.map.maputils
+import sunpy
 from reproject import reproject_interp
-from typing import Any, Tuple, Union, cast
+from pathlib import Path
+from matplotlib.colors import Normalize
+import pandas as pd
+from scipy.ndimage import map_coordinates, uniform_filter
+import copy
+
+# import os
+
+WCSLinearMode = Literal["pc2_unit", "cd_basis_unit", "cdelt_invariant", "cd"]
 
 
+def build_corrected_wcs_meta_scale_shift(
+    map_in: GenericMap,
+    dx_opt: float = 0.0,
+    dy_opt: float = 0.0,
+    sx_opt: float = 1.0,
+    sy_opt: float = 1.0,
+    verbose: int = 0,
+    *,
+    linear_mode: WCSLinearMode = "cd_basis_unit",
+) -> Dict[str, Any]:
+    """
+        Construct corrected WCS metadata encoding a pixel-domain affine registration
+        (anisotropic scaling about CRPIX followed by a translation), without resampling.
+
+        Pixel-domain transform (registration model)
+        ------------------------------------------
+            P' = P0 + ΔS (P - P0) + Δ
+
+        with:
+        - P  = (pix1, pix2)^T
+        - P0 = (CRPIX1, CRPIX2)^T
+        - ΔS = diag(s_x, s_y)  (forward scale factors in WCS pixel axis order)
+        - Δ  = (Δx, Δy)^T      (forward translation in pixels; +x right, +y down)
+
+        Linear WCS model (pre-projection)
+        ---------------------------------
+            X = X0 + M (P - P0)
+
+        with:
+        - X  = (world1, world2)^T  (intermediate world coords before projection)
+        - X0 = (CRVAL1, CRVAL2)^T
+        - M  = CD (the 2x2 linear Jacobian at CRPIX)
+        - P  = (pix1, pix2)^T
+        - P0 = (CRPIX1, CRPIX2)^T
+
+        Enforcing invariance of world coordinates
+        -----------------------------------------
+            WCS_old(P) = WCS_new(P')   for all P
+
+        Choosing P0' = P0 (CRPIX unchanged) yields:
+            M'  = M (ΔS)^{-1}
+            X0' = X0 - M' Δ
+
+        Optimizer convention
+        --------------------
+        The optimizer is assumed to return the inverse correction:
+        - s_x = 1 / sx_opt,   s_y = 1 / sy_opt
+        - Δx  = -dx_opt,      Δy  = -dy_opt
+
+        FITS linear WCS encodings
+        -------------------------
+        The linear mapping may be represented either as:
+        - CD matrix directly:
+                CD_ij  (preferred for unambiguous storage)
+            or
+        - PC + CDELT factorization (FITS row scaling):
+                CD = diag(CDELT1, CDELT2) @ PC
+
+            i.e. CDELT scales ROWS, not columns:
+                CD1_j = CDELT1 * PC1_j
+                CD2_j = CDELT2 * PC2_j
+
+        linear_mode (normalization / storage convention)
+        ------------------------------------------------
+        After computing the corrected CD matrix M' (=CD'), this function can store it as:
+
+        - "cd" :
+            Store CD' directly in CD1_1..CD2_2 and remove PC/CDELT.
+
+        - "cdelt_invariant" :
+            Keep existing CDELT1/2 unchanged and solve PC row-wise:
+                PC = diag(1/CDELT) @ CD'
+            This preserves the mapping exactly but does not enforce any PC normalization.
+
+        - "pc2_unit" (default) :
+            Enforce global (Frobenius) normalization of PC:
+                ||PC||_F^2 = sum_{i,j} PC_{i,j}^2 = 1
+            while preserving CD' exactly by a single global rescaling:
+                PC'    = PC / k
+                CDELT' = CDELT * k        (same k applied to both axes)
+            so that diag(CDELT') @ PC' == CD'.
+
+        - "cd_basis_unit" :
+            Enforce row-wise unit-norm of PC (basis vectors in FITS row-scaled sense):
+                ||PC[0,:]||_2 = 1   and   ||PC[1,:]||_2 = 1
+            while preserving CD' exactly by per-row rescaling:
+                PC'[0,:] = PC[0,:] / r1      CDELT1' = CDELT1 * r1
+                PC'[1,:] = PC[1,:] / r2      CDELT2' = CDELT2 * r2
+            so that diag(CDELT') @ PC' = CD'.
+
+        Returns
+        -------
+        dict
+            Header-like metadata dict with:
+            - CRPIX unchanged
+            - updated CRVAL1/2
+            - corrected linear mapping stored per `linear_mode`
+    """
+    meta = copy.deepcopy(map_in.wcs.to_header())
+
+    crval1 = float(meta["CRVAL1"])
+    crval2 = float(meta["CRVAL2"])
+
+    # ----- read current linear matrix as CD -----
+    def _get_cd_from_header(h: Dict[str, Any]) -> np.ndarray:
+        if all(k in h for k in ("CD1_1", "CD1_2", "CD2_1", "CD2_2")):
+            return np.array(
+                [[float(h["CD1_1"]), float(h["CD1_2"])],
+                 [float(h["CD2_1"]), float(h["CD2_2"])]],
+                dtype=float,
+            )
+
+        cdelt1 = float(h["CDELT1"])
+        cdelt2 = float(h["CDELT2"])
+        pc11 = float(h.get("PC1_1", 1.0))
+        pc12 = float(h.get("PC1_2", 0.0))
+        pc21 = float(h.get("PC2_1", 0.0))
+        pc22 = float(h.get("PC2_2", 1.0))
+
+        return np.array(
+            [[cdelt1 * pc11, cdelt1 * pc12],
+             [cdelt2 * pc21, cdelt2 * pc22]],
+            dtype=float,
+        )
+
+    CD = _get_cd_from_header(meta)
+
+    # ----- optimizer -> forward affine params -----
+    if sx_opt == 0.0 or sy_opt == 0.0:
+        raise ValueError("sx_opt and sy_opt must be non-zero.")
+
+    s_x = 1.0 / sx_opt
+    s_y = 1.0 / sy_opt
+    dx = -dx_opt
+    dy = -dy_opt
+    
+    # ----- corrected linear matrix: CD' = CD @ inv(diag(sx,sy)) (rescales columns) -----
+    inv_DS = np.array([[1.0 / s_x, 0.0],
+                       [0.0, 1.0 / s_y]], dtype=float)
+    CDp = CD @ inv_DS
+
+    # ----- update CRVAL with CRPIX fixed: CRVAL' = CRVAL - CD' @ [dx,dy] -----
+    meta["CRVAL1"] = crval1 - (CDp[0, 0] * dx + CDp[0, 1] * dy)
+    meta["CRVAL2"] = crval2 - (CDp[1, 0] * dx + CDp[1, 1] * dy)
+
+    # ----- writers -----
+    def _write_cd(h: Dict[str, Any], CDm: np.ndarray) -> None:
+        h["CD1_1"], h["CD1_2"] = float(CDm[0, 0]), float(CDm[0, 1])
+        h["CD2_1"], h["CD2_2"] = float(CDm[1, 0]), float(CDm[1, 1])
+        for k in ("PC1_1", "PC1_2", "PC2_1", "PC2_2", "CDELT1", "CDELT2"):
+            h.pop(k, None)
+
+    def _write_pc_from_cd_and_cdelt(h: Dict[str, Any], CDm: np.ndarray, cdelt1: float, cdelt2: float) -> None:
+        if cdelt1 == 0.0 or cdelt2 == 0.0:
+            raise ValueError("Degenerate CDELT: cannot form PC.")
+        h["CDELT1"] = float(cdelt1)
+        h["CDELT2"] = float(cdelt2)
+
+        h["PC1_1"] = float(CDm[0, 0] / cdelt1)
+        h["PC1_2"] = float(CDm[0, 1] / cdelt1)
+        h["PC2_1"] = float(CDm[1, 0] / cdelt2)
+        h["PC2_2"] = float(CDm[1, 1] / cdelt2)
+
+        for k in ("CD1_1", "CD1_2", "CD2_1", "CD2_2"):
+            h.pop(k, None)
+
+    def _ensure_cdelt_exists(h: Dict[str, Any]) -> None:
+        if "CDELT1" not in h or "CDELT2" not in h:
+            raise ValueError("CDELT1/2 not present in header; cannot use PC+CDELT modes.")
+
+    def _write_pc_cdelt_invariant(h: Dict[str, Any], CDm: np.ndarray) -> None:
+        _ensure_cdelt_exists(h)
+        cdelt1 = float(h["CDELT1"])
+        cdelt2 = float(h["CDELT2"])
+        _write_pc_from_cd_and_cdelt(h, CDm, cdelt1, cdelt2)
+
+    def _write_pc2_unit_frobenius(h: Dict[str, Any], CDm: np.ndarray) -> None:
+        """
+        pc2_unit: enforce sum(PC^2)=1 (Frobenius norm 1), preserving CD.
+        Achieved by global scaling of PC by k and compensating both CDELT by k.
+        """
+        _ensure_cdelt_exists(h)
+        cdelt1 = float(h["CDELT1"])
+        cdelt2 = float(h["CDELT2"])
+        if cdelt1 == 0.0 or cdelt2 == 0.0:
+            raise ValueError("Degenerate CDELT: cannot form PC.")
+
+        PC = np.array([[CDm[0, 0] / cdelt1, CDm[0, 1] / cdelt1],
+                       [CDm[1, 0] / cdelt2, CDm[1, 1] / cdelt2]], dtype=float)
+
+        frob = float(np.sqrt(np.sum(PC * PC)))
+        if frob == 0.0:
+            raise ValueError("Degenerate PC: Frobenius norm zero.")
+
+        # Scale PC down, scale CDELT up -> CD unchanged
+        PCp = PC / frob
+        cdelt1p = cdelt1 * frob
+        cdelt2p = cdelt2 * frob
+
+        if verbose:
+            print(f"pc2_unit: Frobenius(PC)={frob:.6g} -> enforcing ||PC||_F=1")
+
+        _write_pc_from_cd_and_cdelt(h, CDm, cdelt1p, cdelt2p)
+        # overwrite PC with the normalized one explicitly (avoids tiny float drift)
+        h["PC1_1"], h["PC1_2"] = float(PCp[0, 0]), float(PCp[0, 1])
+        h["PC2_1"], h["PC2_2"] = float(PCp[1, 0]), float(PCp[1, 1])
+
+    def _write_cd_basis_unit_rows(h: Dict[str, Any], CDm: np.ndarray) -> None:
+        """
+        cd_basis_unit: enforce ||PC row1||=1 and ||PC row2||=1, preserving CD.
+        Achieved by scaling each PC row i by ki and compensating CDELTi by ki.
+        """
+        _ensure_cdelt_exists(h)
+        cdelt1 = float(h["CDELT1"])
+        cdelt2 = float(h["CDELT2"])
+        if cdelt1 == 0.0 or cdelt2 == 0.0:
+            raise ValueError("Degenerate CDELT: cannot form PC.")
+
+        PC = np.array([[CDm[0, 0] / cdelt1, CDm[0, 1] / cdelt1],
+                       [CDm[1, 0] / cdelt2, CDm[1, 1] / cdelt2]], dtype=float)
+
+        r1 = float(np.linalg.norm(PC[0, :]))
+        r2 = float(np.linalg.norm(PC[1, :]))
+        if r1 == 0.0 or r2 == 0.0:
+            raise ValueError("Degenerate PC: row norm zero.")
+
+        # Normalize rows, scale CDELT per row -> CD unchanged
+        PCp = PC.copy()
+        PCp[0, :] /= r1
+        PCp[1, :] /= r2
+        cdelt1p = cdelt1 * r1
+        cdelt2p = cdelt2 * r2
+
+        if verbose:
+            print(f"cd_basis_unit: row norms (r1,r2)=({r1:.6g},{r2:.6g}) -> enforcing both = 1")
+
+        _write_pc_from_cd_and_cdelt(h, CDm, cdelt1p, cdelt2p)
+        h["PC1_1"], h["PC1_2"] = float(PCp[0, 0]), float(PCp[0, 1])
+        h["PC2_1"], h["PC2_2"] = float(PCp[1, 0]), float(PCp[1, 1])
+
+    # ----- dispatch -----
+    if linear_mode == "cd":
+        _write_cd(meta, CDp)
+
+    elif linear_mode == "cdelt_invariant":
+        _write_pc_cdelt_invariant(meta, CDp)
+
+    elif linear_mode == "pc2_unit":
+        _write_pc2_unit_frobenius(meta, CDp)
+
+    elif linear_mode == "cd_basis_unit":
+        _write_cd_basis_unit_rows(meta, CDp)
+
+    else:
+        raise ValueError(
+            f"Unknown linear_mode='{linear_mode}'. "
+            "Choose from 'pc2_unit', 'cd_basis_unit', 'cdelt_invariant', 'cd'."
+        )
+
+    return meta
+
+
+def make_corrected_wcs_map(
+    map_in: GenericMap,
+    best_params: Dict[str, float],
+    verbose: int = 0,
+    linear_mode: WCSLinearMode = "cd_basis_unit",
+) -> GenericMap:
+    dx = float(best_params.get("dx", 0.0))
+    dy = float(best_params.get("dy", 0.0))
+    sx = float(best_params.get("squeeze_x", 1.0))
+    sy = float(best_params.get("squeeze_y", 1.0))
+
+    new_meta = build_corrected_wcs_meta_scale_shift(
+        map_in,
+        dx_opt=dx,
+        dy_opt=dy,
+        sx_opt=sx,
+        sy_opt=sy,
+        verbose=verbose,
+        linear_mode=linear_mode,
+    )
+
+    return cast(GenericMap, sunpy.map.Map(map_in.data, new_meta, plot_settings=map_in.plot_settings))
+
+
+def no_nan_uniform_filter(
+    data: NDArray,
+    remove_percentile: float = 100,
+    *args,
+    **kwargs,
+) -> NDArray:
+  """Apply uniform filter while masking outliers and preserving NaN regions.
+  
+  Wraps scipy.ndimage.uniform_filter with preprocessing to handle NaN values
+  and optionally remove extreme outliers before smoothing.
+  
+  Parameters
+  ----------
+  data : NDArray
+      Input array to filter
+  remove_percentile : float, default=100
+      Percentile threshold for outlier removal (0-100).
+      Values above this percentile are masked as NaN before filtering.
+      Use 100 to disable outlier removal.
+  *args
+      Additional positional arguments passed to uniform_filter
+      (typically filter size)
+  **kwargs
+      Additional keyword arguments passed to uniform_filter
+      (mode, cval, etc.)
+  
+  Returns
+  -------
+  NDArray
+      Smoothed array with original NaN locations preserved
+  
+  Notes
+  -----
+  The function performs these steps:
+  1. Identify values above remove_percentile and mark as NaN
+  2. Create binary mask of NaN locations
+  3. Fill NaN locations with 0.0 for filtering
+  4. Apply uniform_filter to filled array
+  5. Restore NaN mask in output
+  
+  This approach prevents NaN propagation during filtering while preserving
+  the locations where data is genuinely missing. Useful for smoothing solar
+  images that may contain hot pixels or detector artifacts.
+  
+  Examples
+  --------
+  >>> import numpy as np
+  >>> data = np.array([[1, 2, 3], [4, np.nan, 6], [7, 8, 9]])
+  >>> smoothed = no_nan_uniform_filter(data, size=3)
+  >>> smoothed[1, 1]  # Center remains NaN
+  nan
+  
+  See Also
+  --------
+  scipy.ndimage.uniform_filter : Underlying filter function
+  """
+  data_percentile: float = cast(float, np.nanpercentile(data, remove_percentile))
+  data_cleaned: NDArray = np.where(data > data_percentile, np.nan, data)
+  nan_mask: NDArray = np.isnan(data_cleaned)
+  data_filled: NDArray = np.where(nan_mask, 0.0, data_cleaned)
+  filtered_data: NDArray = uniform_filter(data_filled, *args, **kwargs)
+  filtered_data[nan_mask] = np.nan
+  return filtered_data
+
+
+def normit(
+    data: NDArray | None = None,
+    interval: interval.BaseInterval | None = AsymmetricPercentileInterval(1, 99),
+    stretch: stretch.BaseStretch | None = SqrtStretch(),
+    vmin: float | None = None,
+    vmax: float | None = None,
+    clip: bool = False,
+    invalid=-1.0,
+) -> Normalize | None:
+    """Normalize the data using the specified interval, stretch, vmin, and vmax.
+
+    Args:
+        data (numpy.ndarray): The data to be normalized.
+        interval (astropy.visualization.Interval, optional): The interval to use for normalization.
+            Defaults to AsymmetricPercentileInterval(1, 99).
+        stretch (astropy.visualization.Stretch, optional): The stretch to apply to the data.
+            Defaults to SqrtStretch().
+        vmin (float, optional): The minimum value for normalization. Defaults to None.
+        vmax (float, optional): The maximum value for normalization. Defaults to None.
+
+    Returns:
+        astropy.visualization.ImageNormalize | None: The normalized data or None if input data is all NaNs.
+    """
+    if vmin is not None or vmax is not None:
+        interval = None
+    if stretch is not None:
+        if data is None or np.all(np.isnan(data)):
+            return None
+        return cast(Normalize,ImageNormalize(
+            data,
+            interval,
+            stretch=stretch,
+            vmin=vmin,
+            vmax=vmax,
+            clip=clip,
+            invalid=invalid,
+        ))
+
+    return cast(Normalize,ImageNormalize(
+        data, interval, vmin=vmin, vmax=vmax, clip=clip, invalid=invalid
+    ))
+
+
+def get_closest_EUIFSI174_paths(
+    date_ref: np.datetime64,
+    interval: np.timedelta64,
+    local_dir: Union[str, Path] = Path("/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
+    verbose: int = 0
+) -> List[Path]:
+    """
+    Find the EUI FITS files whose timestamps are closest to a reference date,
+    within a specified tolerance interval.
+
+    Parameters
+    ----------
+    date_ref : np.datetime64
+        Reference date/time.
+    interval : np.timedelta64
+        Maximum allowed offset (±) from date_ref.
+    local_dir : str or Path, optional
+        Base directory where EUI data is stored.
+    verbose : int, optional
+        Verbosity level for logging (default 0).
+
+    Returns
+    -------
+    List[Path]
+        Paths to the FITS files whose timestamps are the closest to date_ref,
+        among those within [date_ref - interval, date_ref + interval].
+        If no files lie within that window, returns an empty list.
+    """
+    # Normalize to millisecond precision
+    date_ref = np.datetime64(date_ref, "ms")  # type: ignore[arg-type]
+    half_int = np.timedelta64(interval, "ms")  # type: ignore[arg-type]
+    lower = date_ref - half_int
+    upper = date_ref + half_int
+    assert lower <= upper, "Interval must be non-negative"
+
+    local_dir = Path(local_dir)
+    _vprint(verbose, 1, f"Searching EUI paths around {date_ref} ± {interval}")
+
+    # 1) Gather all days that might contain candidates
+    days = _find_all_days(lower, upper, verbose)
+    _vprint(verbose, 2, f"Checking {len(days)} days from {lower} to {upper}")
+
+    # 2) Collect all FITS files in that window
+    all_paths: Iterable[Path] = []
+    for day in days:
+        _vprint(verbose, 3, f"  Grabbing data for {day}")
+        all_paths.extend(_grab_EUI_data(day, local_dir, verbose))
+
+    if not all_paths:
+        _vprint(verbose, 1, "No EUI files found in the interval.")
+        return []
+
+    all_paths = split_eui_paths_by_mode(all_paths)['eui-fsi174-image']
+
+    # 3) Extract timestamps from filenames
+    def extract_dt(p: Path) -> Union[np.datetime64, None]:
+        m = re.search(r"(\d{8})T(\d{6})", p.name)
+        if not m:
+            return None
+        dt = datetime.datetime.strptime(m.group(0), "%Y%m%dT%H%M%S")
+        return np.datetime64(dt, "ms")
+
+    _vprint(verbose, 2, f"Extracting timestamps from {len(all_paths)} files")
+    paths_arr = np.array(all_paths, dtype=object)
+    dates = np.array([extract_dt(p) for p in paths_arr], dtype="datetime64[ms]")
+
+    # 4) Compute absolute differences to reference, mask out None
+    valid_mask = dates != np.datetime64("NaT", "ms")
+    if not np.any(valid_mask):
+        _vprint(verbose, 1, "No valid timestamps parsed.")
+        return []
+
+    diffs = np.abs(dates[valid_mask] - date_ref)
+    min_diff = diffs.min()
+    _vprint(verbose, 1, f"Minimum time difference = {min_diff}")
+
+    # 5) Select all paths that achieve this minimum difference
+    candidates = paths_arr[valid_mask][diffs == min_diff]
+    # Sort lexicographically for reproducibility
+    closest = sorted(candidates.tolist())
+
+    _vprint(verbose, 1, f"Found {len(closest)} closest file(s) within ±{interval}")
+    return closest
+
+# Imager manipulation functions.
+def _find_all_days(
+    date_min: np.datetime64,
+    date_max: np.datetime64,
+    verbose: int = 0
+) -> List[np.datetime64]:
+    """
+    Find all dates between date_min and date_max (inclusive).
+
+    Parameters
+    ----------
+    date_min : np.datetime64
+        The start date.
+    date_max : np.datetime64
+        The end date.
+    verbose : int, optional
+        Verbosity level for logging (default is 0).
+
+    Returns
+    -------
+    List[np.datetime64]
+        A list of np.datetime64 objects for each day in the range.
+    """
+    _vprint(verbose, 2, f"Finding all days between {date_min} and {date_max}")
+    # Add one day to include date_max in the range
+    end_plus_one = date_max + np.timedelta64(1, "D")
+    date_list = pd.date_range(date_min, end_plus_one, freq="D").to_list()
+    _vprint(verbose, 2, f"Found {len(date_list)} days")
+    return cast(List[np.datetime64], date_list)
+def _grab_EUI_data(
+    date: np.datetime64,
+    local_dir: str | Path = Path("/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
+    verbose: int = 0
+) -> List[Path]:
+    """
+    Retrieve EUI FITS files for a specific date from a local directory.
+
+    Notes
+    -----
+    The `local_dir` must be structured as yyyy/mm/dd/filename.fits.
+
+    Parameters
+    ----------
+    date : np.datetime64
+        The date for which to grab EUI data.
+    local_dir : str or Path, optional
+        Base directory where EUI data is stored (default is
+        "/archive/SOLAR-ORBITER/EUI/data_internal/L2").
+    verbose : int, optional
+        Verbosity level for logging (default is 0).
+
+    Returns
+    -------
+    List[Path]
+        A list of Path objects pointing to EUI FITS files for the specified date.
+        Returns an empty list if the target folder does not exist.
+    """
+    # Convert to millisecond-precision datetime64 and then to Python datetime
+    date = np.datetime64(date, "ms") # type: ignore[arg-type]
+    date_dt = date.astype(datetime.datetime)
+    year = date_dt.year
+    month = date_dt.month
+    day = date_dt.day
+
+    local_dir = Path(local_dir)
+    target_folder = local_dir / f"{year:04d}" / f"{month:02d}" / f"{day:02d}"
+
+    _vprint(verbose, 2, f"Looking for EUI data in {target_folder}")
+    if target_folder.exists():
+        eui_files = list(target_folder.glob("*.fits"))
+        _vprint(verbose, 2, f"Found {len(eui_files)} EUI files for date {date_dt.date()}")
+        return eui_files
+    else:
+        _vprint(verbose, -1, f"Directory does not exist: {target_folder}")
+        return []
+def get_EUI_paths(
+    date_min: np.datetime64,
+    date_max: np.datetime64,
+    local_dir: str | Path = Path("/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
+    verbose: int = 0
+) -> List[Path]:
+    """
+    Collect all EUI FITS file paths between date_min and date_max (inclusive).
+
+    Parameters
+    ----------
+    date_min : np.datetime64
+        The start date for the search.
+    date_max : np.datetime64
+        The end date for the search.
+    local_dir : str or Path, optional
+        Base directory where EUI data is stored (default is
+        "/archive/SOLAR-ORBITER/EUI/data_internal/L2").
+    verbose : int, optional
+        Verbosity level for logging (default is 0).
+
+    Returns
+    -------
+    List[Path]
+        A sorted list of Path objects for EUI FITS files whose timestamps
+        (extracted from filenames) lie between date_min and date_max.
+    """
+    # Ensure inputs are millisecond-precision datetime64
+    date_min = np.datetime64(date_min, "ms") # type: ignore[arg-type]
+    date_max = np.datetime64(date_max, "ms") # type: ignore[arg-type]
+    assert date_min <= date_max, "date_min must be less than or equal to date_max"
+
+    local_dir = Path(local_dir)
+    _vprint(verbose, 2, f"Getting EUI paths from {date_min} to {date_max} in {local_dir}")
+
+    # 1) Gather all days in the range
+    all_days = _find_all_days(date_min, date_max, verbose)
+
+    # 2) Collect all FITS files across those days
+    eui_paths: List[Path] = []
+    for day in all_days:
+        _vprint(verbose, 3, f"Grabbing EUI data for {day}")
+        eui_paths.extend(_grab_EUI_data(day, local_dir, verbose))
+
+    if not eui_paths:
+        _vprint(verbose, 1, "No EUI files found in the specified date range.")
+        return []
+
+    # 3) Sort collected paths
+    eui_paths_array = np.array(eui_paths, dtype=object)
+    eui_paths_sorted = np.sort(eui_paths_array)
+
+    # 4) Extract timestamps from filenames and convert to datetime64
+    def _extract_datetime(path: Path) -> np.datetime64 | None:
+        match = re.search(r"(\d{8})T(\d{6})", path.name)
+        if match:
+            dt_str = match.group(0)
+            dt_obj = datetime.datetime.strptime(dt_str, "%Y%m%dT%H%M%S")
+            return np.datetime64(dt_obj)
+        return None
+
+    _vprint(verbose, 3, "Extracting timestamps from filenames")
+    vectorized_extract = np.vectorize(_extract_datetime)
+    eui_dates = vectorized_extract(eui_paths_sorted)
+
+    # 5) Filter paths whose extracted dates lie within [date_min, date_max]
+    mask = np.array(
+        [(dt is not None and date_min <= dt <= date_max) for dt in eui_dates]
+    )
+    filtered_paths = list(np.array(eui_paths_sorted, dtype=object)[mask])
+
+    _vprint(
+        verbose,
+        2,
+        f"{len(filtered_paths)} files remain after filtering by date range"
+    )
+    return filtered_paths
+def split_eui_paths_by_mode(
+    list_paths: Iterable[Path],
+    verbose: int = 0
+) -> Dict[str, np.ndarray[Any]]:
+    """
+    Split EUI file paths into groups based on the instrument mode encoded in the filename.
+
+    The mode is defined as the substring between the pattern 'solo_L[0-4]_' and the timestamp
+    pattern '_YYYYMMDDThhMMSS' in each filename.
+
+    Parameters
+    ----------
+    list_paths : np.ndarray[Path]
+        Array of Path objects pointing to EUI FITS files.
+    verbose : int, optional
+        Verbosity level for logging (default is 0).
+
+    Returns
+    -------
+    Dict[str, np.ndarray[Path]]
+        A dictionary mapping each unique mode string to an array of Path objects
+        corresponding to that mode.
+    """
+    # Ensure we work with a numpy array of Path
+    list_paths = np.array(list_paths, dtype=object)
+    _vprint(verbose, 2, f"Splitting EUI data into different modes")
+    _vprint(verbose, 2, f"Found {len(list_paths)} EUI paths")
+
+    # Vectorized extraction of mode from each filename.
+    # The regex 'solo_L[0-4]_' marks the start of mode,
+    # and '_YYYYMMDDThhMMSS' marks the end.
+
+    def _extract_mode(path: Path) -> str:
+        name = path.name
+        start_match = re.search(r"solo_L[0-4]_", name)
+        end_match = re.search(r"_(\d{8})T(\d{6})", name)
+        if start_match and end_match:
+            return name[start_match.end(): end_match.start()]
+        return ""
+
+    modes = np.vectorize(_extract_mode)(list_paths)
+
+    unique_modes = np.unique(modes)
+    _vprint(verbose, 1, f"Found {len(unique_modes)} modes")
+    _vprint(verbose, 2, f"Modes found:\n\t" + "\n\t".join(unique_modes))
+
+    # Initialize dictionary with an empty list for each mode
+    dict_paths: Dict[str, list[Path]] = {mode: [] for mode in unique_modes}
+
+    # Assign each path to its corresponding mode
+    for path, mode in zip(list_paths, modes):
+        if mode:
+            dict_paths[mode].append(path)
+
+    # Convert lists to numpy arrays for consistency
+    dict_paths_array: Dict[str, np.ndarray[Any]] = {
+        mode: np.array(paths, dtype=object)
+        for mode, paths in dict_paths.items()
+    }
+    return dict_paths_array
+
+
+
+def get_closest_EUIFSI304_paths(
+    date_ref: np.datetime64,
+    interval: np.timedelta64,
+    local_dir: Union[str, Path] = Path("/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
+    verbose: int = 0
+) -> List[Path]:
+    pass
+    """
+    Find the EUI FITS files (FSI 304) whose timestamps are closest to a reference date,
+    within a specified tolerance interval.
+
+    Parameters
+    ----------
+    date_ref : np.datetime64
+        Reference date/time.
+    interval : np.timedelta64
+        Maximum allowed offset (±) from date_ref.
+    local_dir : str or Path, optional
+        Base directory where EUI data is stored.
+    verbose : int, optional
+        Verbosity level for logging (default 0).
+
+    Returns
+    -------
+    List[Path]
+        Paths to the FITS files whose timestamps are the closest to date_ref,
+        among those within [date_ref - interval, date_ref + interval].
+        If no files lie within that window, returns an empty list.
+    """
+    # Normalize to millisecond precision
+    date_ref = np.datetime64(date_ref, "ms") # type: ignore[arg-type]
+    half_int = np.timedelta64(interval, "ms") # type: ignore[arg-type]
+    lower = date_ref - half_int
+    upper = date_ref + half_int
+    assert lower <= upper, "Interval must be non-negative"
+
+    local_dir = Path(local_dir)
+    _vprint(verbose, 1, f"Searching EUI paths around {date_ref} ± {interval}")
+
+    # 1) Gather all days that might contain candidates
+    days = _find_all_days(lower, upper, verbose)
+    _vprint(verbose, 2, f"Checking {len(days)} days from {lower} to {upper}")
+
+    # 2) Collect all FITS files in that window
+    all_paths: List[Path] = []
+    for day in days:
+        _vprint(verbose, 3, f"  Grabbing data for {day}")
+        all_paths.extend(_grab_EUI_data(day, local_dir, verbose))
+
+    if not all_paths:
+        _vprint(verbose, 1, "No EUI files found in the interval.")
+        return []
+
+    all_paths = cast(List[Path], split_eui_paths_by_mode(all_paths)['eui-fsi304-image'])
+
+    # 3) Extract timestamps from filenames
+    def extract_dt(p: Path) -> Union[np.datetime64, None]:
+        m = re.search(r"(\d{8})T(\d{6})", p.name)
+        if not m:
+            return None
+        dt = datetime.datetime.strptime(m.group(0), "%Y%m%dT%H%M%S")
+        return np.datetime64(dt, "ms")
+
+    _vprint(verbose, 2, f"Extracting timestamps from {len(all_paths)} files")
+    paths_arr = np.array(all_paths, dtype=object)
+    dates = np.array([extract_dt(p) for p in paths_arr], dtype="datetime64[ms]")
+
+    # 4) Compute absolute differences to reference, mask out None
+    valid_mask = dates != np.datetime64("NaT", "ms")
+    if not np.any(valid_mask):
+        _vprint(verbose, 1, "No valid timestamps parsed.")
+        return []
+
+    diffs = np.abs(dates[valid_mask] - date_ref)
+    min_diff = diffs.min()
+    _vprint(verbose, 1, f"Minimum time difference = {min_diff}")
+
+    # 5) Select all paths that achieve this minimum difference
+    candidates = paths_arr[valid_mask][diffs == min_diff]
+    # Sort lexicographically for reproducibility
+    closest = sorted(candidates.tolist())
+
+    _vprint(verbose, 1, f"Found {len(closest)} closest file(s) within ±{interval}")
+    return closest
+
+
+
+
+# Helper functions for FSI map selection and time extraction.
+def _nearest_imager_index(
+    step_time: np.datetime64,
+    fsi_times: np.ndarray,
+    threshold: np.timedelta64 | None,
+    verbose: int = 0,
+) -> int:
+    deltas = np.abs(fsi_times - step_time) / np.timedelta64(1, "s")
+    idx = int(np.argmin(deltas))
+    sel_dt = deltas[idx]
+    _vprint(verbose, 2, f"Nearest FSI idx={idx}, Δt={sel_dt:.3f}s for step {step_time}")
+    if threshold is not None and sel_dt > (threshold / np.timedelta64(1, "s")):
+        raise ValueError(
+            f"No FSI map within {threshold / np.timedelta64(1, 's')} s for step at {step_time}"
+        )
+    return idx
+
+
+def _extract_map_time(entry: Union[GenericMap, str, Path], verbose: int = 0) -> np.datetime64:
+    if isinstance(entry, GenericMap):
+        t = np.datetime64(entry.date.isot)
+        _vprint(verbose, 3, f"Map time (GenericMap): {t}")
+        return t
+    header = None
+    for ext in (1, 0):
+        try:
+            header = fits.getheader(entry, ext=ext)
+            break
+        except (FileNotFoundError, OSError, IndexError):
+            continue
+    if header is None:
+        raise ValueError(f"Unable to read FITS header from {entry}")
+    hdr = header
+    date_key = hdr.get("DATE-AVG") or hdr.get("DATE-OBS") or hdr.get("DATE_BEG")
+    if date_key is None:
+        raise ValueError(f"No DATE-* keyword found in {entry}")
+    t = np.datetime64(date_key)
+    _vprint(verbose, 2, f"Map time ({Path(entry).name}): {t}")
+    return t
+
+
+
+def interpol2d(image, x, y, fill, order, dst=None):
+    """"
+    taken from Frederic interpol2d function
+    """
+    bad = np.logical_or(x == np.nan, y == np.nan)
+    x = np.where(bad, -1, x)
+    y = np.where(bad, -1, y)
+
+    coords = np.stack((y.ravel(), x.ravel()), axis=0)
+    return_ = False
+
+    if dst is None:
+        return_ = True
+        dst = np.empty(x.shape, dtype=image.dtype)
+
+    map_coordinates(image,
+                    coords,
+                    order=order,
+                    mode='constant',
+                    cval=fill, output=dst.ravel(), prefilter=False)
+    if return_:
+        return dst
+
+# build synthetic FSI raster.
+def meta_to_header(meta):
+      hdr = fits.Header()
+      for k, v in meta.items():
+        try: hdr[k] = v
+        except: pass
+      return hdr
+
+
+def _pixel_world_with_optional_time(
+    wcs_obj: WCS,
+    xx: np.ndarray,
+    yy: np.ndarray,
+) -> tuple[SkyCoord, astropy.time.core.Time | None]:
+    pixel_inputs: list[Any] = [xx * u.pix, yy * u.pix]
+    if getattr(wcs_obj, "pixel_n_dim", 2) >= 3:
+        pixel_inputs.append(np.zeros_like(xx))
+    world_result = wcs_obj.pixel_to_world(*pixel_inputs)
+    # Check if result is a sequence with time/temporal component
+    if isinstance(world_result, (tuple, list)) and len(world_result) > 1:
+        if isinstance(world_result[1], astropy.time.core.Time):
+            coords_spice : SkyCoord = cast(SkyCoord, world_result[0])
+            time_payload : astropy.time.core.Time = world_result[1]
+        elif isinstance(world_result[1], u.Quantity):
+            # Temporal WCS was added manually - convert Quantity to Time if possible
+            coords_spice : SkyCoord = cast(SkyCoord, world_result[0])
+            try:
+                # Try to convert Quantity to Time using map's reference time
+                time_payload = astropy.time.Time(world_result[1], format='mjd', scale='utc')
+            except Exception:
+                time_payload = None
+        else:
+            coords_spice = cast(SkyCoord, world_result[0] if len(world_result) > 0 else world_result)
+            time_payload = None
+    else:
+        coords_spice = cast(SkyCoord, world_result)
+        time_payload = None
+    return coords_spice, time_payload
+
+
+def _coerce_step_times(
+    time_payload: Any | None,
+    nx: int,
+    default_time: np.datetime64,
+) -> NDArray[np.datetime64]:
+    if time_payload is None:
+        return np.full(nx, default_time, dtype="datetime64[ms]")
+    try:
+        dt_values = np.asarray(time_payload.to_datetime(), dtype="datetime64[ms]")
+    except Exception:
+        return np.full(nx, default_time, dtype="datetime64[ms]")
+    if dt_values.ndim == 0:
+        return np.full(nx, dt_values, dtype="datetime64[ms]")
+    if dt_values.ndim > 1:
+        return dt_values[0]
+    return dt_values
+  
 # ==============================================================
 # Helper: build synthetic raster from FSI maps
 # ==============================================================
 def build_synthetic_raster_from_maps(
     spice_map: GenericMap,
     fsi_maps: Sequence[Union[GenericMap, str, Path]],
-    step_times: Sequence[np.datetime64] | None = None,
     threshold_time: np.timedelta64 | None = None,
     order: int = 2,
     verbose: int = 0,
+    **kwargs,
 ) -> GenericMap:
     """
     Sample FSI maps (or FITS paths) onto the spatial grid of a SPICE map and
@@ -36,9 +959,6 @@ def build_synthetic_raster_from_maps(
         Target raster geometry.
     fsi_maps : Sequence[GenericMap | str | Path]
         FSI images or paths to FITS files; each must carry a valid ``date``.
-    step_times : Sequence[np.datetime64], optional
-        Time for each SPICE slit position (length = NAXIS1). Defaults to the
-        SPICE map time for all positions.
     threshold_time : np.timedelta64, optional
         Maximum allowed |Δt| between slit time and selected FSI time.
     order : int, optional
@@ -49,7 +969,7 @@ def build_synthetic_raster_from_maps(
 
     _vprint(verbose, 1, "Building synthetic raster from FSI maps")
 
-    ny, nx = spice_map.data.shape
+    ny, nx = cast(NDArray, spice_map.data).shape
 
     fsi_entries: list[Union[GenericMap, Path, str]] = []
     fsi_times_list: list[np.datetime64] = []
@@ -80,13 +1000,13 @@ def build_synthetic_raster_from_maps(
             fsi_map = entry
         else:
             if idx not in fsi_cache:
-                _vprint(verbose, 2, f"Loading FSI map idx {idx} from {entry.name}")
-                fsi_cache[idx] = Map(entry)
+                _vprint(verbose, 2, f"Loading FSI map idx {idx} from {cast(Path, entry).name}")
+                fsi_cache[idx] = cast(GenericMap, Map(entry))
             fsi_map = fsi_cache[idx]
 
         coords_col = SkyCoord(
-            coords_spice.Tx[:, i],
-            coords_spice.Ty[:, i],
+            cast(NDArray, coords_spice.Tx)[:, i],
+            cast(NDArray, coords_spice.Ty)[:, i],
             frame=coords_spice.frame,
         )
         x_fsi, y_fsi = fsi_map.world_to_pixel(coords_col)
@@ -98,12 +1018,12 @@ def build_synthetic_raster_from_maps(
             fill=np.nan,
         )
 
-    hdr = spice_map.meta.copy()
+    hdr = cast(Dict,spice_map.meta).copy()
     hdr["SYNRASTR"] = "FSI->SPICE synthetic raster"
     hdr["SRCIMGS"] = len(fsi_maps)
     hdr.setdefault("DATE-AVG", spice_map.date.isot)
 
-    plot_settings = getattr(spice_map, "plot_settings", None)
+    plot_settings = getattr(spice_map, "plot_settings", {})
     plot_settings["norm"] = normit(data_composed)
     
     return GenericMap(data_composed, hdr, plot_settings=plot_settings)
@@ -242,10 +1162,10 @@ def get_pixel_scale_quantity(map_obj: GenericMap) -> Tuple[u.Quantity, u.Quantit
     pixel_scale_y : u.Quantity
         Pixel scale in Y (arcseconds per pixel)
     """
-    cdelt1 = abs(map_obj.meta.get('CDELT1', 1.0))
-    cdelt2 = abs(map_obj.meta.get('CDELT2', 1.0))
-    cunit1 = map_obj.meta.get('CUNIT1', 'arcsec')
-    cunit2 = map_obj.meta.get('CUNIT2', 'arcsec')
+    cdelt1 = abs(cast(Dict,map_obj.meta).get('CDELT1', 1.0))
+    cdelt2 = abs(cast(Dict,map_obj.meta).get('CDELT2', 1.0))
+    cunit1 = cast(Dict,map_obj.meta).get('CUNIT1', 'arcsec')
+    cunit2 = cast(Dict,map_obj.meta).get('CUNIT2', 'arcsec')
     pixel_scale_x = (cdelt1 * u.Unit(cunit1)).to(u.arcsec)
     pixel_scale_y = (cdelt2 * u.Unit(cunit2)).to(u.arcsec)
     return pixel_scale_x, pixel_scale_y
@@ -347,7 +1267,6 @@ def bin_map(map_obj: GenericMap, bin_factor: int | Tuple[int, int]) -> GenericMa
         return map_obj
     
     # Apply NaN-safe uniform filter, then downsample
-    from help_funcs import no_nan_uniform_filter
     smoothed_data = no_nan_uniform_filter(
         np.asarray(map_obj.data),
         remove_percentile=99,
@@ -356,18 +1275,18 @@ def bin_map(map_obj: GenericMap, bin_factor: int | Tuple[int, int]) -> GenericMa
     binned_data = smoothed_data[::bin_y, ::bin_x]
     
     # Update metadata for binned WCS
-    new_meta = map_obj.meta.copy()
-    new_meta['CDELT1'] = map_obj.meta['CDELT1'] * bin_x
-    new_meta['CDELT2'] = map_obj.meta['CDELT2'] * bin_y
-    new_meta['CRPIX1'] = map_obj.meta['CRPIX1'] / bin_x
-    new_meta['CRPIX2'] = map_obj.meta['CRPIX2'] / bin_y
+    new_meta = cast(Dict, map_obj.meta).copy()
+    new_meta['CDELT1'] = cast(Dict, map_obj.meta)['CDELT1'] * bin_x
+    new_meta['CDELT2'] = cast(Dict, map_obj.meta)['CDELT2'] * bin_y
+    new_meta['CRPIX1'] = cast(Dict, map_obj.meta)['CRPIX1'] / bin_x
+    new_meta['CRPIX2'] = cast(Dict, map_obj.meta)['CRPIX2'] / bin_y
     new_meta['NAXIS1'] = binned_data.shape[1]
     new_meta['NAXIS2'] = binned_data.shape[0]
     
     from sunpy.map import Map
     # Preserve plot_settings (norm, cmap, etc.) from original map
     plot_settings = getattr(map_obj, 'plot_settings', None)
-    return Map(binned_data, new_meta, plot_settings=plot_settings)
+    return cast(GenericMap, Map(binned_data, new_meta, plot_settings=plot_settings))
 
 
 def apply_shift_to_map(
@@ -392,7 +1311,6 @@ def apply_shift_to_map(
     shifted_map : GenericMap
         Map with updated WCS
     """
-    from slimfunc_correlation_effort import make_corrected_wcs_map
     
     # Convert shifts to pixels using separate pixel scales
     pixel_scale_x, pixel_scale_y = get_pixel_scale_quantity(map_obj)
@@ -439,7 +1357,6 @@ def apply_shift_and_scale_to_map(
     transformed_map : GenericMap
         Map with updated WCS
     """
-    from slimfunc_correlation_effort import make_corrected_wcs_map
     
     # Convert shifts to pixels using separate pixel scales
     pixel_scale_x, pixel_scale_y = get_pixel_scale_quantity(map_obj)

@@ -12,8 +12,8 @@ from multiprocessing import Queue #, Manager, Process
 import numpy as np
 from .utils import _vprint
 
-from .correlation_jitmv  import correlation_for_params_jit, build_corr_context_jit#, correlation_for_params
-from coalign_helpers_2 import (
+from .correlation_jit  import correlation_for_params_jit, build_corr_context_jit#, correlation_for_params
+from .coalign_helpers import (
     clamp_point,
     # clamp_point_nd,
     point_in_bounds,

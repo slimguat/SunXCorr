@@ -6,4 +6,5 @@ sunpy
 matplotlib
 mpl_animators
 reproject
+pandas
 git+https://github.com/slimguat/saffron-spice.git

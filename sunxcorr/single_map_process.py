@@ -16,9 +16,9 @@ from .utils import (
     # pixels_to_arcsec,
     get_pixel_scale_quantity,
     reproject_map_to_reference,
+    _vprint
 )
 from .optimization import optimize_shift_and_scale
-from help_funcs import _vprint
 # from slimfunc_correlation_effort import reproject_map_to_reference
 from .debug_plot import create_debug_context
 
