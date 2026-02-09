@@ -138,7 +138,7 @@ python test_coalignment.py --test all --verbose 2
 
 ## TODO
 
-1. **Debug Visualization** (verbose >= 3)
+1. **Debug Visualization** (np.abs(verbose) >= 3)
    - Integrate coalign_debug.py
    - Generate PDF plots
    - Create blink animations
