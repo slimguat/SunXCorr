@@ -1,3 +1,13 @@
+"""High-performance correlation helpers (Numba/JIT).
+
+This module provides both reference (pure NumPy) and Numba-accelerated
+implementations of the normalized correlation objective used by the
+optimization routines. The JIT variant supports a prebuilt context to
+avoid recomputing masks per call.
+"""
+
+from __future__ import annotations
+
 import numpy as np
 from numba import jit
 from typing import Optional, Tuple, cast
@@ -9,6 +19,18 @@ def normalized_corr_nan_safe(img1: np.ndarray, img2: np.ndarray) -> float:
     """
     Normalized correlation between two same-shape images,
     ignoring NaNs (they do not contribute to sums).
+
+    Parameters
+    ----------
+    img1, img2 : ndarray
+        Arrays of identical shape. Values that are NaN in either input
+        are ignored in the correlation computation.
+
+    Returns
+    -------
+    float
+        Pearson-like normalized correlation in [-1, 1]. Returns 0.0 when
+        no overlapping finite pixels or when denominator is zero.
     """
     img1 = np.asarray(img1, dtype=np.float64)
     img2 = np.asarray(img2, dtype=np.float64)
@@ -47,8 +69,27 @@ def squeeze_to_ref_grid(
     order: int = 1,
     cval: float = np.nan,
 ) -> np.ndarray:
-    """
-    Rescale (stretch/squeeze) target_img onto reference grid using affine_transform.
+    """Rescale (stretch/squeeze) target_img onto reference grid using affine_transform.
+
+    Parameters
+    ----------
+    target_img : ndarray
+        Image to be resampled.
+    ref_shape : tuple[int, int]
+        Output shape (ny, nx) of the reference grid.
+    squeeze_x, squeeze_y : float
+        Scaling factors applied to x and y axes (forward squeeze).
+    center : tuple or None
+        Center pixel coordinates for scaling; defaults to image centre.
+    order : int
+        Interpolation order passed to `scipy.ndimage.affine_transform`.
+    cval : float
+        Fill value for points outside the boundaries (defaults to NaN).
+
+    Returns
+    -------
+    ndarray
+        Resampled image aligned to `ref_shape`.
     """
     target_img = np.asarray(target_img, dtype=np.float64)
     ny, nx = target_img.shape

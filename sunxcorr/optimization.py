@@ -1,5 +1,7 @@
 """Optimization functions for coalignment (shift and/or scale search)."""
 
+from __future__ import annotations
+
 # import heapq
 import math
 import hashlib
@@ -132,11 +134,53 @@ def optimize_shift_and_scale(
     result_queue: Optional[Queue] = None,
     shared_payloads: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Tuple[Dict[str, float], int, List[Dict[str, float]]]:
-    """
-    Optimize shift (and optionally scale) using persistent worker architecture.
-    
-    Workers, queues, and shared memory are managed externally and passed in.
-    This allows workers to persist across multiple optimization calls.
+    """Optimize shift (and optionally scale) using persistent workers.
+
+    Parameters
+    ----------
+    target_data : ndarray
+        Target image array (floating dtype recommended).
+    reference_data : ndarray
+        Reference image array (same shape as target_data).
+    max_shift : int or tuple
+        Maximum pixel shift to explore (symmetric int or (sx, sy) tuple).
+    scale_step : float
+        Step size for scale search (0.0 means shift-only).
+    scale_range : tuple or None
+        Scale search bounds when `scale_step > 0`.
+    workers : Any
+        Worker pool-like object; must expose `_processes` for worker count.
+    center_pix : tuple or None
+        Center pixel coordinates for correlation centering.
+    n_neighbors : int
+        Number of neighbor candidates to evaluate per iteration.
+    max_corr : float
+        Target correlation to reach; if < 0, search until plateau.
+    corr_atol, corr_rtol : float
+        Absolute and relative tolerances for correlation comparisons.
+    plateau_iters : int
+        Iterations without improvement before stopping.
+    dx0, dy0 : float
+        Initial guess for shifts (pixels).
+    sx0, sy0 : float or None
+        Initial scale guesses when performing scale optimization.
+    verbose : int
+        Verbosity level for `_vprint` debug output.
+    debug_ctx : Any
+        Optional debug plotting context used during optimization.
+    task_queue, result_queue : multiprocessing.Queue or None
+        Queues used with persistent worker processes.
+    shared_payloads : dict or None
+        Manager-backed dict for sharing large arrays with workers.
+
+    Returns
+    -------
+    best_params : dict
+        Dictionary with keys `dx`, `dy`, `sx`, `sy`, `corr` describing best found parameters.
+    iterations : int
+        Number of optimization iterations performed.
+    history : list
+        List of per-iteration records with keys `iteration`, `dx`, `dy`, `corr`.
     """
     # Detect search dimensionality
     is_4d = scale_step > 0 and scale_range is not None
@@ -184,7 +228,7 @@ def optimize_shift_and_scale(
         center_trace: List[Tuple[int, int]] = []
         iteration_number = 0
         
-        def record_corr(dx: int, dy: int, corr_val: float) -> None:
+        def _record_corr_2d(dx: int, dy: int, corr_val: float) -> None:
             cache[(dx, dy)] = corr_val
             history.append({
                 'iteration': iteration_number,
@@ -195,7 +239,7 @@ def optimize_shift_and_scale(
             if debug_ctx is not None:
                 debug_ctx.add_point(int(dx), int(dy), corr_val)
         
-        def evaluate_points(points: List[Tuple[int, int]]) -> List[Tuple[int, int, float]]:
+        def _evaluate_points_2d(points: List[Tuple[int, int]]) -> List[Tuple[int, int, float]]:
             nonlocal next_job_id
             results: List[Tuple[int, int, float]] = []
             uncached = []
@@ -233,9 +277,8 @@ def optimize_shift_and_scale(
                     job_id, batch = result_queue.get()
                     pending_jobs.discard(job_id)
                     chunk_points = job_map.pop(job_id, [])
-                    
                     for (dx, dy, corr_val), (point_dx, point_dy) in zip(batch, chunk_points):
-                        record_corr(int(dx), int(dy), corr_val)
+                        _record_corr_2d(int(dx), int(dy), corr_val)
                         results.append((int(dx), int(dy), corr_val))
             
             return results
@@ -243,7 +286,7 @@ def optimize_shift_and_scale(
         # Initialize
         current_center = clamp_point((int(round(dx0)), int(round(dy0))), shift_x, shift_y)
         if current_center not in cache:
-            evaluate_points([current_center])
+            _evaluate_points_2d([current_center])
         center_trace.append(current_center)
         
         best_point, best_corr = max(cache.items(), key=lambda item: item[1])
@@ -265,7 +308,7 @@ def optimize_shift_and_scale(
             new_points = gather_neighbors(
                 current_center, neighbor_offsets, cache, neighbor_limit, shift_x, shift_y
             )
-            evaluated = evaluate_points(new_points)
+            evaluated = _evaluate_points_2d(new_points)
             
             local_points = [(current_center[0], current_center[1], cache[current_center])]
             local_points.extend(evaluated)
@@ -321,7 +364,7 @@ def optimize_shift_and_scale(
             current_center = candidate_center
             center_trace.append(current_center)
             if current_center not in cache:
-                evaluate_points([current_center])
+                _evaluate_points_2d([current_center])
         
         # Workers remain alive for subsequent calls (managed externally)
         _vprint(verbose, 1, f"Best correlation found: {best_corr:.6f} at shift ({best_point[0]}, {best_point[1]}).")
@@ -356,11 +399,11 @@ def optimize_shift_and_scale(
         _vprint(verbose, 2, f"4D search: {len(dx_vals)}×{len(dy_vals)}×{len(sx_vals)}×{len(sy_vals)} = {total_points} points")
         _vprint(verbose, 2, f"Using {n_workers} workers with batch processing")
         
-        cache: Dict[Tuple[int, int, float, float], float] = {}
+        cache4d: Dict[Tuple[int, int, float, float], float] = {}
         iteration_number = 0
         
-        def record_corr(dx: int, dy: int, sx: float, sy: float, corr_val: float) -> None:
-            cache[(dx, dy, sx, sy)] = corr_val
+        def _record_corr_4d(dx: int, dy: int, sx: float, sy: float, corr_val: float) -> None:
+            cache4d[(dx, dy, sx, sy)] = corr_val
             history.append({
                 'iteration': iteration_number,
                 'dx': float(dx),
@@ -372,14 +415,14 @@ def optimize_shift_and_scale(
             if debug_ctx is not None:
                 debug_ctx.add_point(int(dx), int(dy), corr_val)
         
-        def evaluate_points(points: List[Tuple[int, int, float, float]]) -> List[Tuple[int, int, float, float, float]]:
+        def _evaluate_points_4d(points: List[Tuple[int, int, float, float]]) -> List[Tuple[int, int, float, float, float]]:
             nonlocal next_job_id
             results: List[Tuple[int, int, float, float, float]] = []
             uncached = []
             
             for dx, dy, sx, sy in points:
-                if (dx, dy, sx, sy) in cache:
-                    results.append((dx, dy, sx, sy, cache[(dx, dy, sx, sy)]))
+                if (dx, dy, sx, sy) in cache4d:
+                    results.append((dx, dy, sx, sy, cache4d[(dx, dy, sx, sy)]))
                 else:
                     uncached.append((dx, dy, sx, sy))
             
@@ -412,24 +455,24 @@ def optimize_shift_and_scale(
                     chunk_points = job_map.pop(job_id, [])
                     
                     for (dx, dy, corr_val), (point_dx, point_dy, point_sx, point_sy) in zip(batch, chunk_points):
-                        record_corr(int(dx), int(dy), float(point_sx), float(point_sy), corr_val)
+                        _record_corr_4d(int(dx), int(dy), float(point_sx), float(point_sy), corr_val)
                         results.append((int(dx), int(dy), float(point_sx), float(point_sy), corr_val))
             
             return results
         
         # Initialize from starting point
-        current_center = (
+        current_center_4d = (
             clamp_point((int(round(dx0)), int(round(dy0))), shift_x, shift_y),
             (float(sx0) if sx0 is not None else 1.0, float(sy0) if sy0 is not None else 1.0)
         )
         
-        start_dx, start_dy = current_center[0]
-        start_sx, start_sy = current_center[1]
-        if (start_dx, start_dy, start_sx, start_sy) not in cache:
-            evaluate_points([(start_dx, start_dy, start_sx, start_sy)])
+        start_dx, start_dy = current_center_4d[0]
+        start_sx, start_sy = current_center_4d[1]
+        if (start_dx, start_dy, start_sx, start_sy) not in cache4d:
+            _evaluate_points_4d([(start_dx, start_dy, start_sx, start_sy)])
         
-        best_key = max(cache.items(), key=lambda item: item[1])[0]
-        best_corr = cache[best_key]
+        best_key = max(cache4d.items(), key=lambda item: item[1])[0]
+        best_corr = cache4d[best_key]
         global_best_corr = best_corr
         search_phase = 2 if force_plateau else 1
         plateau_counter = 0
@@ -437,16 +480,16 @@ def optimize_shift_and_scale(
         
         # Main search loop - simple greedy neighbor search
         while True:
-            if len(cache) >= total_points:
+            if len(cache4d) >= total_points:
                 _vprint(verbose, 2, "All 4D positions evaluated; stopping.")
                 break
             
             iteration_number += 1
-            _vprint(verbose, 2, f"Iteration {iteration_number}: center {current_center}, cache {len(cache)}/{total_points}, phase {search_phase}")
+            _vprint(verbose, 2, f"Iteration {iteration_number}: center {current_center_4d}, cache {len(cache4d)}/{total_points}, phase {search_phase}")
             
             # Generate neighbors in 4D space
-            center_dx, center_dy = current_center[0]
-            center_sx, center_sy = current_center[1]
+            center_dx, center_dy = current_center_4d[0]
+            center_sx, center_sy = current_center_4d[1]
             
             neighbors = []
             for ddx in [-1, 0, 1]:
@@ -467,7 +510,7 @@ def optimize_shift_and_scale(
                                 new_sy < sy_min or new_sy > sy_max):
                                 continue
                             
-                            if (new_dx, new_dy, new_sx, new_sy) not in cache:
+                            if (new_dx, new_dy, new_sx, new_sy) not in cache4d:
                                 neighbors.append((new_dx, new_dy, new_sx, new_sy))
             
             # Limit neighbors
@@ -478,14 +521,14 @@ def optimize_shift_and_scale(
                 _vprint(verbose, 2, "No more neighbors; stopping.")
                 break
             
-            evaluated = evaluate_points(neighbors)
+            evaluated_4d = _evaluate_points_4d(neighbors)
             
             if debug_ctx is not None:
                 debug_ctx.render_iteration((center_dx, center_dy), search_phase)
             
             # Find best
-            best_key = max(cache.items(), key=lambda item: item[1])[0]
-            best_corr = cache[best_key]
+            best_key = max(cache4d.items(), key=lambda item: item[1])[0]
+            best_corr = cache4d[best_key]
             if best_corr > global_best_corr:
                 global_best_corr = best_corr
             
@@ -501,7 +544,7 @@ def optimize_shift_and_scale(
                 break
             
             # Move to best point
-            current_center = ((best_key[0], best_key[1]), (best_key[2], best_key[3]))
+            current_center_4d = ((best_key[0], best_key[1]), (best_key[2], best_key[3]))
         
         # Workers remain alive for subsequent calls (managed externally)
         _vprint(verbose, 1, f"Best correlation: {best_corr:.6f} at shift=({best_key[0]}, {best_key[1]}), scale=({best_key[2]:.3f}, {best_key[3]:.3f})")

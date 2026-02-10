@@ -1,4 +1,7 @@
 """Utility functions for coalignment processes."""
+
+from __future__ import annotations
+
 import re
 import datetime
 import numpy as np
@@ -26,6 +29,16 @@ import pandas as pd
 from scipy.ndimage import map_coordinates, uniform_filter
 import copy
 
+# Small helper: cast various date-like inputs to numpy.datetime64[ms]
+def _as_datetime64_ms(val):
+    """Cast a value to numpy.datetime64 with millisecond precision.
+
+    This is a concise helper used to normalize various inputs (str, datetime,
+    np.datetime64) into `numpy.datetime64[ms]` which avoids Pylance overload
+    complaints from direct `np.datetime64(..., "ms")` calls.
+    """
+    return np.asarray(val, dtype="datetime64[ms]")
+
 # import os
 
 WCSLinearMode = Literal["pc2_unit", "cd_basis_unit", "cdelt_invariant", "cd"]
@@ -42,8 +55,8 @@ def build_corrected_wcs_meta_scale_shift(
     linear_mode: WCSLinearMode = "cd_basis_unit",
 ) -> Dict[str, Any]:
     """
-        Construct corrected WCS metadata encoding a pixel-domain affine registration
-        (anisotropic scaling about CRPIX followed by a translation), without resampling.
+    Construct corrected WCS metadata encoding a pixel-domain affine registration
+    (anisotropic scaling about CRPIX followed by a translation), without resampling.
 
         Pixel-domain transform (registration model)
         ------------------------------------------
@@ -93,17 +106,26 @@ def build_corrected_wcs_meta_scale_shift(
                 CD1_j = CDELT1 * PC1_j
                 CD2_j = CDELT2 * PC2_j
 
-        linear_mode (normalization / storage convention)
-        ------------------------------------------------
-        After computing the corrected CD matrix M' (=CD'), this function can store it as:
+    Parameters
+    ----------
+    map_in : GenericMap
+        Input map whose WCS metadata will be adjusted to encode the provided
+        scale and shift corrections.
+    dx_opt, dy_opt : float
+        Pixel translation corrections (applied after scaling).
+    sx_opt, sy_opt : float
+        Scale correction factors in pixel units (forward scaling applied to
+        pixel coordinates).
+    verbose : int
+        Verbosity level for debug printing.
+    linear_mode : {'pc2_unit', 'cd_basis_unit', 'cdelt_invariant', 'cd'}
+        How to store the corrected linear transform in FITS header keys.
 
-        - "cd" :
-            Store CD' directly in CD1_1..CD2_2 and remove PC/CDELT.
-
-        - "cdelt_invariant" :
-            Keep existing CDELT1/2 unchanged and solve PC row-wise:
-                PC = diag(1/CDELT) @ CD'
-            This preserves the mapping exactly but does not enforce any PC normalization.
+    Returns
+    -------
+    dict
+        A dictionary of header-like WCS metadata keys (CRPIX, CRVAL, CD/PC/CDELT)
+        representing the corrected WCS without performing any resampling.
 
         - "pc2_unit" (default) :
             Enforce global (Frobenius) normalization of PC:
@@ -454,8 +476,8 @@ def get_closest_EUIFSI174_paths(
         If no files lie within that window, returns an empty list.
     """
     # Normalize to millisecond precision
-    date_ref = np.datetime64(date_ref, "ms")  # type: ignore[arg-type]
-    half_int = np.timedelta64(interval, "ms")  # type: ignore[arg-type]
+    date_ref = _as_datetime64_ms(date_ref)
+    half_int = np.asarray(interval, dtype="timedelta64[ms]")
     lower = date_ref - half_int
     upper = date_ref + half_int
     assert lower <= upper, "Interval must be non-negative"
@@ -464,11 +486,11 @@ def get_closest_EUIFSI174_paths(
     _vprint(verbose, 1, f"Searching EUI paths around {date_ref} ± {interval}")
 
     # 1) Gather all days that might contain candidates
-    days = _find_all_days(lower, upper, verbose)
+    days = _find_all_days(lower, upper, verbose)  # type: ignore[arg-type]
     _vprint(verbose, 2, f"Checking {len(days)} days from {lower} to {upper}")
 
     # 2) Collect all FITS files in that window
-    all_paths: Iterable[Path] = []
+    all_paths: List[Path] = []
     for day in days:
         _vprint(verbose, 3, f"  Grabbing data for {day}")
         all_paths.extend(_grab_EUI_data(day, local_dir, verbose))
@@ -477,7 +499,7 @@ def get_closest_EUIFSI174_paths(
         _vprint(verbose, 1, "No EUI files found in the interval.")
         return []
 
-    all_paths = split_eui_paths_by_mode(all_paths)['eui-fsi174-image']
+    all_paths = list(split_eui_paths_by_mode(all_paths)['eui-fsi174-image'])
 
     # 3) Extract timestamps from filenames
     def extract_dt(p: Path) -> Union[np.datetime64, None]:
@@ -485,14 +507,14 @@ def get_closest_EUIFSI174_paths(
         if not m:
             return None
         dt = datetime.datetime.strptime(m.group(0), "%Y%m%dT%H%M%S")
-        return np.datetime64(dt, "ms")
+        return _as_datetime64_ms(dt)
 
     _vprint(verbose, 2, f"Extracting timestamps from {len(all_paths)} files")
     paths_arr = np.array(all_paths, dtype=object)
     dates = np.array([extract_dt(p) for p in paths_arr], dtype="datetime64[ms]")
 
     # 4) Compute absolute differences to reference, mask out None
-    valid_mask = dates != np.datetime64("NaT", "ms")
+    valid_mask = dates != _as_datetime64_ms("NaT")
     if not np.any(valid_mask):
         _vprint(verbose, 1, "No valid timestamps parsed.")
         return []
@@ -500,7 +522,6 @@ def get_closest_EUIFSI174_paths(
     diffs = np.abs(dates[valid_mask] - date_ref)
     min_diff = diffs.min()
     _vprint(verbose, 1, f"Minimum time difference = {min_diff}")
-
     # 5) Select all paths that achieve this minimum difference
     candidates = paths_arr[valid_mask][diffs == min_diff]
     # Sort lexicographically for reproducibility
@@ -567,7 +588,7 @@ def _grab_EUI_data(
         Returns an empty list if the target folder does not exist.
     """
     # Convert to millisecond-precision datetime64 and then to Python datetime
-    date = np.datetime64(date, "ms") # type: ignore[arg-type]
+    date = _as_datetime64_ms(date)
     date_dt = date.astype(datetime.datetime)
     year = date_dt.year
     month = date_dt.month
@@ -612,8 +633,8 @@ def get_EUI_paths(
         (extracted from filenames) lie between date_min and date_max.
     """
     # Ensure inputs are millisecond-precision datetime64
-    date_min = np.datetime64(date_min, "ms") # type: ignore[arg-type]
-    date_max = np.datetime64(date_max, "ms") # type: ignore[arg-type]
+    date_min = _as_datetime64_ms(date_min)
+    date_max = _as_datetime64_ms(date_max)
     assert date_min <= date_max, "date_min must be less than or equal to date_max"
 
     local_dir = Path(local_dir)
@@ -642,7 +663,7 @@ def get_EUI_paths(
         if match:
             dt_str = match.group(0)
             dt_obj = datetime.datetime.strptime(dt_str, "%Y%m%dT%H%M%S")
-            return np.datetime64(dt_obj)
+            return _as_datetime64_ms(dt_obj)
         return None
 
     _vprint(verbose, 3, "Extracting timestamps from filenames")
@@ -730,7 +751,6 @@ def get_closest_EUIFSI304_paths(
     local_dir: Union[str, Path] = Path("/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
     verbose: int = 0
 ) -> List[Path]:
-    pass
     """
     Find the EUI FITS files (FSI 304) whose timestamps are closest to a reference date,
     within a specified tolerance interval.
@@ -753,9 +773,8 @@ def get_closest_EUIFSI304_paths(
         among those within [date_ref - interval, date_ref + interval].
         If no files lie within that window, returns an empty list.
     """
-    # Normalize to millisecond precision
-    date_ref = np.datetime64(date_ref, "ms") # type: ignore[arg-type]
-    half_int = np.timedelta64(interval, "ms") # type: ignore[arg-type]
+    date_ref = _as_datetime64_ms(date_ref)  # Normalize to millisecond precision
+    half_int = np.asarray(interval, dtype="timedelta64[ms]")  # Convert interval to millisecond precision
     lower = date_ref - half_int
     upper = date_ref + half_int
     assert lower <= upper, "Interval must be non-negative"
@@ -764,7 +783,7 @@ def get_closest_EUIFSI304_paths(
     _vprint(verbose, 1, f"Searching EUI paths around {date_ref} ± {interval}")
 
     # 1) Gather all days that might contain candidates
-    days = _find_all_days(lower, upper, verbose)
+    days = _find_all_days(lower, upper, verbose)  # type: ignore[arg-type]
     _vprint(verbose, 2, f"Checking {len(days)} days from {lower} to {upper}")
 
     # 2) Collect all FITS files in that window
@@ -785,14 +804,14 @@ def get_closest_EUIFSI304_paths(
         if not m:
             return None
         dt = datetime.datetime.strptime(m.group(0), "%Y%m%dT%H%M%S")
-        return np.datetime64(dt, "ms")
+        return _as_datetime64_ms(dt)  # Normalize to millisecond precision
 
     _vprint(verbose, 2, f"Extracting timestamps from {len(all_paths)} files")
     paths_arr = np.array(all_paths, dtype=object)
     dates = np.array([extract_dt(p) for p in paths_arr], dtype="datetime64[ms]")
 
     # 4) Compute absolute differences to reference, mask out None
-    valid_mask = dates != np.datetime64("NaT", "ms")
+    valid_mask = dates != _as_datetime64_ms("NaT")
     if not np.any(valid_mask):
         _vprint(verbose, 1, "No valid timestamps parsed.")
         return []
@@ -832,7 +851,7 @@ def _nearest_imager_index(
 
 def _extract_map_time(entry: Union[GenericMap, str, Path], verbose: int = 0) -> np.datetime64:
     if isinstance(entry, GenericMap):
-        t = np.datetime64(entry.date.isot)
+        t = _as_datetime64_ms(entry.date.isot)
         _vprint(verbose, 3, f"Map time (GenericMap): {t}")
         return t
     header = None
@@ -848,7 +867,7 @@ def _extract_map_time(entry: Union[GenericMap, str, Path], verbose: int = 0) -> 
     date_key = hdr.get("DATE-AVG") or hdr.get("DATE-OBS") or hdr.get("DATE_BEG")
     if date_key is None:
         raise ValueError(f"No DATE-* keyword found in {entry}")
-    t = np.datetime64(date_key)
+    t = _as_datetime64_ms(date_key)
     _vprint(verbose, 2, f"Map time ({Path(entry).name}): {t}")
     return t
 
@@ -898,11 +917,11 @@ def _pixel_world_with_optional_time(
     # Check if result is a sequence with time/temporal component
     if isinstance(world_result, (tuple, list)) and len(world_result) > 1:
         if isinstance(world_result[1], astropy.time.core.Time):
-            coords_spice : SkyCoord = cast(SkyCoord, world_result[0])
-            time_payload : astropy.time.core.Time = world_result[1]
+                    coords_spice = cast(SkyCoord, world_result[0])
+                    time_payload = world_result[1]
         elif isinstance(world_result[1], u.Quantity):
             # Temporal WCS was added manually - convert Quantity to Time if possible
-            coords_spice : SkyCoord = cast(SkyCoord, world_result[0])
+            coords_spice = cast(SkyCoord, world_result[0])
             try:
                 # Try to convert Quantity to Time using map's reference time
                 time_payload = astropy.time.Time(world_result[1], format='mjd', scale='utc')
@@ -987,7 +1006,7 @@ def build_synthetic_raster_from_maps(
     step_times: NDArray[np.datetime64] = _coerce_step_times(
         time_matrix,
         nx,
-        np.datetime64(spice_map.date.isot),
+        _as_datetime64_ms(spice_map.date.isot),
     )
     _vprint(verbose, 2, "Computed step_times from WCS metadata")
     
@@ -1067,6 +1086,26 @@ def reproject_map_to_reference(
 
     # Mask outside-footprint pixels as NaN
     reprojected_data = np.where(footprint > 0, reprojected_data, np.nan)
+
+    # Some versions/instrument combinations produce very small footprints
+    # when passing the Map object directly; try passing the (data, wcs)
+    # tuple as a fallback to improve coverage.
+    finite_frac = np.isfinite(reprojected_data).sum() / reprojected_data.size
+    if finite_frac < 0.05:
+        try:
+            reprojected_data2, footprint2 = reproject_interp(
+                (input_map.data, input_map.wcs),
+                target_wcs,
+                shape_out=target_shape,
+                order=order,
+            )
+            reprojected_data2 = np.where(footprint2 > 0, reprojected_data2, np.nan)
+            if np.isfinite(reprojected_data2).sum() > np.isfinite(reprojected_data).sum():
+                reprojected_data = reprojected_data2
+                footprint = footprint2
+        except Exception:
+            # If fallback fails, keep original reprojected_data
+            pass
 
     new_meta = cast(dict, ref_map.meta).copy()
     new_map = sunpy.map.Map(reprojected_data, new_meta, plot_settings=input_map.plot_settings)
@@ -1171,7 +1210,7 @@ def get_pixel_scale_quantity(map_obj: GenericMap) -> Tuple[u.Quantity, u.Quantit
     return pixel_scale_x, pixel_scale_y
 
 
-def arcsec_to_pixels(value_arcsec: u.Quantity | Tuple[u.Quantity, u.Quantity], map_obj: GenericMap) -> Tuple[int, int] | int:
+def arcsec_to_pixels(value_arcsec: u.Quantity | Tuple[u.Quantity, u.Quantity], map_obj: GenericMap) -> Tuple[int, int]:
     """
     Convert angular distance to pixels for a given map.
     

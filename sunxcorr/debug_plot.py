@@ -336,7 +336,7 @@ class DebugPlotContext:
     if phase_name:
         main_title += f" - {phase_name.title()}"
     fig.suptitle(main_title, fontsize=14, y=0.98)
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
     
     # Generate filename based on phase
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")

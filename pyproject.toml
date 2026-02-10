@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sunxcorr"
+version = "0.0.1"
+description = "Solar image coalignment utilities and correlation tools"
+authors = [ { name = "Slimane MZERGUAT" } ]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "scipy",
+    "numba",
+    "astropy",
+    "sunpy",
+    "reproject",
+    "matplotlib",
+]
+
+[tool.isort]
+profile = "black"
+
+[tool.black]
+line-length = 88

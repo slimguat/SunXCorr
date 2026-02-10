@@ -1,6 +1,9 @@
 """Utility functions for creating blink animations."""
 
+from __future__ import annotations
+
 import numpy as np
+
 from pathlib import Path
 from sunpy.map import GenericMap
 import matplotlib.pyplot as plt

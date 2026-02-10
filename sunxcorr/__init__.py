@@ -3,6 +3,7 @@
 Public API re-exports for the `sunxcorr` package. This initializer exposes the
 main classes used by downstream code.
 """
+from __future__ import annotations
 from .base_node import CoalignmentNode  # noqa: F401
 from .orchestrator import Orchestrator  # noqa: F401
 from .single_map_process import SingleMapProcess  # noqa: F401

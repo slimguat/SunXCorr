@@ -1,7 +1,11 @@
 """Single-map cross-correlation process (shift-only optimization)."""
 
+from __future__ import annotations
+
 import time
 from pathlib import Path
+from typing import Tuple, cast
+from numpy.typing import NDArray
 
 import astropy.units as u
 import numpy as np
@@ -78,7 +82,25 @@ class SingleMapProcess(CoalignmentNode):
         self.node_name = f"Single Map Process ({bin_label})"
     
     def _execute_own_process(self, working_map: GenericMap) -> None:
-        """Execute shift-only optimization."""
+        """Execute shift-only optimization.
+
+        This method builds a reprojected reference image on the working map's
+        grid, optionally bins both images, and runs a shift-only search using
+        `optimize_shift_and_scale` with `scale_step=0`. Results are stored in
+        `self.result` as a `ProcessResult` instance.
+
+        Parameters
+        ----------
+        working_map : GenericMap
+            The map to be corrected (target); may be binned internally for
+            faster searches depending on `self.bin_kernel`.
+
+        Returns
+        -------
+        None
+            Results are written to `self.result` and `self.is_executed` is set
+            to True on completion.
+        """
         verbose = self.get_verbose_level()
         start_time = time.time()
         
@@ -100,7 +122,7 @@ class SingleMapProcess(CoalignmentNode):
         # Reproject reference onto working map's grid
         _vprint(verbose, 2, f"  Reprojecting reference to working map grid...")
         reference_reprojected = reproject_map_to_reference(working_map, reference_map)
-        _vprint(verbose, 2, f"  Reprojected reference shape: {reference_reprojected.data.shape}")
+        _vprint(verbose, 2, f"  Reprojected reference shape: {cast(NDArray, reference_reprojected.data).shape}")
         
         # Convert max_shift to pixels using original map (separate X and Y)
         max_shift_pixels_x, max_shift_pixels_y = arcsec_to_pixels(self.max_shift, working_map)
@@ -114,8 +136,8 @@ class SingleMapProcess(CoalignmentNode):
             _vprint(verbose, 1, f"Applying binning: {bin_factor_x}x (X) × {bin_factor_y}x (Y)...")
             working_binned = bin_map(working_map, (bin_factor_x, bin_factor_y))
             reference_binned = bin_map(reference_reprojected, (bin_factor_x, bin_factor_y))
-            _vprint(verbose, 2, f"  Working binned shape: {working_binned.data.shape}")
-            _vprint(verbose, 2, f"  Reference binned shape: {reference_binned.data.shape}")
+            _vprint(verbose, 2, f"  Working binned shape: {cast(NDArray, working_binned.data).shape}")
+            _vprint(verbose, 2, f"  Reference binned shape: {cast(NDArray, reference_binned.data).shape}")
             
             # Scale max_shift for binned pixels (separate X and Y)
             max_shift_binned_pixels_x = max(1, max_shift_pixels_x // bin_factor_x)

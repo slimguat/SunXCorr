@@ -1,5 +1,7 @@
 """Synthetic raster generation and optimization process."""
 
+from __future__ import annotations
+
 import time
 # from pathlib import Path
 from typing import Tuple
@@ -80,7 +82,26 @@ class SyntheticRasterProcess(CoalignmentNode):
             self.node_name = "Synthetic Raster Process (Shift-Only)"
     
     def _execute_own_process(self, working_map: GenericMap) -> None:
-        """Execute synthetic raster generation and shift+scale optimization."""
+        """Execute synthetic raster generation and shift+scale optimization.
+
+        This method constructs a synthetic raster from the configured
+        `reference_sequence`, then runs a shift+scale optimization over the
+        synthetic raster vs the provided `working_map`. When `self.scale_step`
+        is zero the search reduces to shift-only. Results are stored in
+        `self.result` as a `ProcessResult` instance.
+
+        Parameters
+        ----------
+        working_map : GenericMap
+            The target map used as the spatial grid for synthetic raster
+            construction and final correction.
+
+        Returns
+        -------
+        None
+            Results are written to `self.result` and `self.is_executed` is set
+            to True on completion.
+        """
         verbose = self.get_verbose_level()
         start_time = time.time()
         

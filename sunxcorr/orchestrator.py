@@ -1,5 +1,7 @@
 """Orchestrator node for managing coalignment processes."""
 
+from __future__ import annotations
+
 from .base_node import CoalignmentNode
 
 

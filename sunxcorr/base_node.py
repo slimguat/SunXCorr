@@ -1,9 +1,28 @@
-"""Base class for coalignment tree nodes."""
+"""Base node functionality for the SunXCorr coalignment tree.
 
+This module defines the abstract `CoalignmentNode` base class used to build
+tree-structured coalignment workflows. Nodes may be composite (orchestrator)
+or leaf (processing step). The class provides resource lookup helpers (worker
+pool, queues), tree management helpers, and result collection utilities.
+
+Typical usage:
+
+    root = Orchestrator(n_workers=4)
+    process = SomeLeafProcess()
+    root.add_child(process)
+    root.execute()
+
+Public API
+----------
+- `CoalignmentNode`: core base class.
+"""
+
+from __future__ import annotations
 from abc import ABC, abstractmethod
+import numpy as np
 from pathlib import Path
-from typing import List
-from multiprocessing import cpu_count
+from typing import List, Any, Optional
+from multiprocessing import cpu_count, Queue
 
 from sunpy.map import GenericMap
 
@@ -64,22 +83,22 @@ class CoalignmentNode(ABC):
     def __init__(self):
         self.node_id: str = ""
         self.node_name: str = ""
-        self.parent: CoalignmentNode | None = None
-        self.children: List[CoalignmentNode] = []
+        self.parent: Optional['CoalignmentNode'] = None
+        self.children: List['CoalignmentNode'] = []
         
         # Data (optional)
-        self.base_target_map: GenericMap | None = None
-        self.current_working_map: GenericMap | None = None
+        self.base_target_map: Optional[GenericMap] = None
+        self.current_working_map: Optional[GenericMap] = None
         
         # Result
-        self.result: ProcessResult | None = None
+        self.result: Optional[ProcessResult] = None
         
         # Resources (inherited if None)
         self.worker_pool = None
         self.debug_writer = None
-        self.verbose: int | None = None
-        self.output_directory: Path | None = None
-        self.n_workers: int | None = None
+        self.verbose: Optional[int] = None
+        self.output_directory: Optional[Path] = None
+        self.n_workers: Optional[int] = None
         
         # Persistent worker infrastructure (managed at root)
         self.task_queue = None
@@ -90,6 +109,10 @@ class CoalignmentNode(ABC):
         # State
         self.is_executed: bool = False
 
+        # Optional reference data (for processes that require it, may be None on some nodes)
+        self.reference_sequence = None
+        self.reference_map = None
+        
     def _ensure_persistent_workers(self) -> None:
         """Create persistent workers at the root if missing."""
         if self.task_queue is not None and self.result_queue is not None and self.shared_payloads is not None:
@@ -205,6 +228,8 @@ class CoalignmentNode(ABC):
             else:
                 return self.get_base_target_map()
         else:
+            # mypy cannot infer that self.parent is not None here, assert for the type-checker
+            assert self.parent is not None
             return self.parent._get_latest_child_output()
     
     def _get_latest_child_output(self) -> GenericMap:
@@ -240,8 +265,14 @@ class CoalignmentNode(ABC):
     # RESOURCE ACCESS
     # ==================
     
-    def get_worker_pool(self):
-        """Get worker pool (searches up tree or creates at root)."""
+    def get_worker_pool(self) -> Any:
+        """Get worker pool (searches up tree or creates at root).
+
+        Returns
+        -------
+        Any
+            Opaque pool-like object providing `.close()` and `.join()` methods.
+        """
         if self.worker_pool is not None:
             return self.worker_pool
         elif self.parent is not None:
@@ -251,8 +282,14 @@ class CoalignmentNode(ABC):
             self._validate_persistent_worker_state()
             return self.worker_pool
     
-    def get_task_queue(self):
-        """Get task queue for persistent workers (searches up tree)."""
+    def get_task_queue(self) -> Optional[Queue]:
+        """Get task queue for persistent workers (searches up tree).
+
+        Returns
+        -------
+        multiprocessing.Queue
+            Queue used to submit tasks to persistent worker processes.
+        """
         if self.task_queue is not None:
             self._validate_persistent_worker_state()
             return self.task_queue
@@ -263,8 +300,14 @@ class CoalignmentNode(ABC):
             self._validate_persistent_worker_state()
             return self.task_queue
     
-    def get_result_queue(self):
-        """Get result queue for persistent workers (searches up tree)."""
+    def get_result_queue(self) -> Optional[Queue]:
+        """Get result queue for persistent workers (searches up tree).
+
+        Returns
+        -------
+        multiprocessing.Queue
+            Queue used by workers to post back results.
+        """
         if self.result_queue is not None:
             self._validate_persistent_worker_state()
             return self.result_queue
@@ -275,8 +318,15 @@ class CoalignmentNode(ABC):
             self._validate_persistent_worker_state()
             return self.result_queue
     
-    def get_shared_payloads(self):
-        """Get shared payloads dict for persistent workers (searches up tree)."""
+    def get_shared_payloads(self) -> Optional[dict]:
+        """Get shared payloads dict for persistent workers (searches up tree).
+
+        Returns
+        -------
+        dict
+            Manager-backed dictionary used to share large payloads (images)
+            with persistent workers.
+        """
         if self.shared_payloads is not None:
             self._validate_persistent_worker_state()
             return self.shared_payloads
@@ -287,8 +337,15 @@ class CoalignmentNode(ABC):
             self._validate_persistent_worker_state()
             return self.shared_payloads
     
-    def get_debug_writer(self):
-        """Get debug PDF writer (searches up tree)."""
+    def get_debug_writer(self) -> Any:
+        """Get debug PDF writer (searches up tree).
+
+        Returns
+        -------
+        Any or None
+            Opaque object used to write debug artifacts (e.g. matplotlib
+            PdfPages) or `None` when not configured.
+        """
         if self.debug_writer is not None:
             return self.debug_writer
         elif self.parent is not None:

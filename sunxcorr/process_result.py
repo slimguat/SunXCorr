@@ -1,8 +1,10 @@
 """Data structures for coalignment process results."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Union
 
 import astropy.units as u
 from sunpy.map import GenericMap
@@ -36,10 +38,10 @@ class ProcessResult:
         Number of optimization iterations
     execution_time : float
         Elapsed time in seconds
-    debug_pdf_path : Path | None
-        Path to debug PDF (if generated)
-    animation_path : Path | None
-        Path to comparison GIF (if generated)
+    debug_pdf_path : Path | str | None
+        Path or string path to debug PDF (if generated)
+    animation_path : Path | str | None
+        Path or string path to comparison GIF (if generated)
     """
     
     process_id: str
@@ -53,6 +55,6 @@ class ProcessResult:
     search_space_explored: int = 0
     iteration_count: int = 0
     execution_time: float = 0.0
-    debug_pdf_path: Path | None = None
-    animation_path: Path | None = None
+    debug_pdf_path: Union[Path, str, None] = None
+    animation_path: Union[Path, str, None] = None
     reference_reprojected: GenericMap | None = None  # Store reprojected reference for potential debugging

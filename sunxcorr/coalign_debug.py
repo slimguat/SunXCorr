@@ -9,20 +9,225 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Set, Tuple
+from typing import Any, List, Set, Tuple, Optional, Dict, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.typing import NDArray
+
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.patches import Rectangle
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from sunpy.map import GenericMap
-
+from matplotlib.animation import FuncAnimation
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 import datetime
 
 from sunxcorr.coalign_helpers import phase_label
-from help_funcs import get_coord_mat, normit
+from .utils import get_coord_mat, normit
+
+# =============================================================
+# Helper: get lon/lat blinking animation
+# =============================================================
+def blink_maps(
+    fsi_map: GenericMap,
+    spice_map: GenericMap,
+    interval: int = 800,
+    n_cycles: int = 10,
+    fsi_label: str = "FSI",
+    spice_label: str = "SPICE (corrected)",
+    use_widgets: bool = False,
+    save_path: Optional[str] = None,
+    save_kwargs: Optional[Dict[str, Any]] = None,
+    xylims: Optional[Tuple[Tuple[float, float], Tuple[float, float]]] = None,
+) -> Tuple[Figure, FuncAnimation, Optional[Any]]:
+    """
+    Create a blinking animation between two maps on the same axes.
+
+    Parameters
+    ----------
+    fsi_map : sunpy.map.Map
+        First map to show (e.g. FSI_map). Its lon/lat limits are used and kept fixed.
+    spice_map : sunpy.map.Map
+        Second map to show (e.g. corrected SPICE map).
+    interval : int, optional
+        Time between frames in milliseconds. Default is 800 ms.
+    n_cycles : int, optional
+        Number of FSI/SPICE cycles. Each cycle has 2 frames (FSI, SPICE).
+        Default is 10 (so 20 frames total).
+    fsi_label : str, optional
+        Title when FSI map is shown.
+    spice_label : str, optional
+        Title when SPICE map is shown.
+    use_widgets : bool, optional
+        If True (and ipywidgets is available), returns Jupyter play/slider
+        controls to start/stop/scrub the animation frames manually.
+    save_path : str or None, optional
+        If given (e.g. 'blink.mp4' or 'blink.gif'), the animation is saved
+        to this path using FuncAnimation.save().
+    save_kwargs : dict or None, optional
+        Extra keyword arguments passed to ani.save(), e.g.
+        {'fps': 2, 'dpi': 150, 'writer': 'ffmpeg'}.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+    ani : matplotlib.animation.FuncAnimation
+    controls : ipywidgets.HBox or None
+        Jupyter controls (Play + Slider) if use_widgets=True and ipywidgets is available,
+        otherwise None.
+    """
+
+    fig = plt.figure()
+    ax = plt.subplot(111)
+
+    # --- FSI map ---
+    from matplotlib.animation import FuncAnimation
+
+    lonFSI, latFSI = get_coord_mat(fsi_map)
+    im1 = ax.pcolormesh(
+        lonFSI,
+        latFSI,
+        cast(NDArray, fsi_map.data),
+        norm=fsi_map.plot_settings["norm"],
+        # cmap=fsi_map.plot_settings["cmap"],
+        cmap="gray",
+    )
+    ax.set_title(fsi_label)
+
+    # --- SPICE map ---
+    lonSPICE, latSPICE = get_coord_mat(spice_map)
+    im2 = ax.pcolormesh(
+        lonSPICE,
+        latSPICE,
+        cast(NDArray, spice_map.data),
+        norm=spice_map.plot_settings["norm"],
+        cmap=spice_map.plot_settings["cmap"],
+    )
+    im2.set_visible(False)  # start with SPICE hidden
+    # add contour of SPICE in  the FSI iamge
+    
+    data = cast(NDArray, spice_map.data)[~np.isnan(cast(NDArray, spice_map.data))]
+    p99 = np.percentile(data, 99)
+    p95 = np.percentile(data, 95)
+    p90 = np.percentile(data, 90)
+    p80 = np.percentile(data, 80)
+    p10 = np.percentile(data, 10)
+    p5  = np.percentile(data, 5) 
+    levels = [p5, p10, p80, p90, p95, p99]
+    cmap = plt.get_cmap('sdoaia304')
+    cmap = cmap.reversed()
+    im3 = ax.contour(
+        lonSPICE,
+        latSPICE,
+        spice_map.data,
+        levels=levels,
+        cmap=cmap,
+        linewidths=0.3,
+        alpha=0.5,
+    )
+    # --- Lock x/y limits from FSI view ---
+    extx = 0.2
+    exty = 0.2
+    if xylims is not None:
+        xlim = xylims[0]
+        ylim = xylims[1]
+    else:
+        xlim = (
+            lonSPICE.min() - (lonSPICE.max() - lonSPICE.min()) * extx,
+            lonSPICE.max() + (lonSPICE.max() - lonSPICE.min()) * extx,
+        )
+        ylim = (
+            latSPICE.min() - (latSPICE.max() - latSPICE.min()) * exty,
+            latSPICE.max() + (latSPICE.max() - latSPICE.min()) * exty,
+        )
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+
+    # total frames = 2 * n_cycles  (FSI, SPICE, FSI, SPICE, …)
+    n_frames = 2 * n_cycles
+    frames = list(range(n_frames))
+
+    def update(frame):
+        if frame % 2 == 0:
+            # show FSI
+            im1.set_visible(True)
+            im2.set_visible(False)
+            im3.set_visible(True)
+            ax.set_title(fsi_label)
+        else:
+            # show SPICE
+            im1.set_visible(False)
+            im2.set_visible(True)
+            im3.set_visible(True)
+            ax.set_title(spice_label)
+
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        return im1, im2, ax
+
+    ani = FuncAnimation(
+        fig,
+        update,
+        frames=frames,
+        interval=interval,
+        blit=False,
+        repeat=False,   # no infinite loop
+    )
+
+    # --- Optional: save to video / GIF ---
+    if save_path is not None:
+        if save_kwargs is None:
+            save_kwargs = {}
+        ani.save(save_path, **save_kwargs)
+
+    controls = None
+
+    # --- Optional: Jupyter start/stop controls with ipywidgets ---
+    if use_widgets:
+        try:
+            import ipywidgets as widgets
+            from IPython.display import display
+
+            play = widgets.Play(
+                value=0,
+                min=0,
+                max=n_frames - 1,
+                step=1,
+                interval=interval,
+                description="Press play",
+                disabled=False,
+            )
+            slider = widgets.IntSlider(
+                value=0,
+                min=0,
+                max=n_frames - 1,
+                step=1,
+                description="Frame",
+                continuous_update=False,
+            )
+
+            # link play and slider
+            widgets.jslink((play, "value"), (slider, "value"))
+
+            # when the slider value changes, update the frame
+            def on_value_change(change):
+                frame = change["new"]
+                update(frame)
+                fig.canvas.draw_idle()
+
+            slider.observe(on_value_change, names="value")
+
+            controls = widgets.HBox([play, slider])
+            display(controls)
+
+        except ImportError:
+            print("ipywidgets not available; widgets controls disabled.")
+            controls = None
+
+    return fig, ani, controls
 
 
 def _build_scatter_colormap() -> LinearSegmentedColormap:
@@ -218,7 +423,7 @@ class DebugPlotContext:
     n_cycles : int, default=5
         Number of animation cycles
     """
-    from slimfunc_correlation_effort import blink_maps
+    
     
     # Create figure with two subplots side by side
     fig, (ax_before, ax_after) = plt.subplots(1, 2, figsize=(14, 6))
@@ -326,7 +531,7 @@ class DebugPlotContext:
     if phase_name:
         main_title += f" - {phase_name.title()}"
     fig.suptitle(main_title, fontsize=14, y=0.98)
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
     
     # Generate filename based on phase
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")

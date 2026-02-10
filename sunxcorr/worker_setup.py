@@ -1,11 +1,18 @@
-"""Utility functions for setting up persistent worker architecture."""
+"""Persistent worker helpers used by SunXCorr.
+
+This module creates manager-backed shared structures and spawns persistent
+worker processes that execute correlation workloads. Workers are intended
+to be started once (at the root orchestrator) and reused across many
+optimization calls to avoid process spawn overhead.
+"""
+from __future__ import annotations
 
 from multiprocessing import Manager, Process, Queue
-from typing import  List#,Any, Dict,
+from typing import List, Tuple, Any
 from .optimization import _corr_worker_loop
 
 
-def setup_persistent_workers(n_workers: int) -> tuple:
+def setup_persistent_workers(n_workers: int) -> Tuple[Queue, Queue, Any, List[Process]]:
     """
     Setup persistent worker infrastructure with Manager, queues, and worker processes.
     
@@ -29,8 +36,8 @@ def setup_persistent_workers(n_workers: int) -> tuple:
     # Create Manager and shared data structures
     manager = Manager()
     shared_payloads = manager.dict()
-    task_queue = Queue()
-    result_queue = Queue()
+    task_queue: Queue = Queue()
+    result_queue: Queue = Queue()
     
     # Spawn persistent worker processes
     worker_processes: List[Process] = []
