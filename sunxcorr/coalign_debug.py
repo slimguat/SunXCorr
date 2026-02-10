@@ -90,7 +90,7 @@ def blink_maps(
     im1 = ax.pcolormesh(
         lonFSI,
         latFSI,
-        cast(NDArray, fsi_map.data),
+        cast(NDArray[Any], fsi_map.data),
         norm=fsi_map.plot_settings["norm"],
         # cmap=fsi_map.plot_settings["cmap"],
         cmap="gray",
@@ -102,14 +102,16 @@ def blink_maps(
     im2 = ax.pcolormesh(
         lonSPICE,
         latSPICE,
-        cast(NDArray, spice_map.data),
+        cast(NDArray[Any], spice_map.data),
         norm=spice_map.plot_settings["norm"],
         cmap=spice_map.plot_settings["cmap"],
     )
     im2.set_visible(False)  # start with SPICE hidden
     # add contour of SPICE in  the FSI iamge
 
-    data = cast(NDArray, spice_map.data)[~np.isnan(cast(NDArray, spice_map.data))]
+    data = cast(NDArray[Any], spice_map.data)[
+        ~np.isnan(cast(NDArray[Any], spice_map.data))
+    ]
     p99 = np.percentile(data, 99)
     p95 = np.percentile(data, 95)
     p90 = np.percentile(data, 90)

@@ -670,11 +670,16 @@ class DebugPlotContext:
         self.pdf_writer.savefig(fig)
         plt.close(fig)
 
-    def reset_scatter_size(self, data_radius: float | None = None) -> None:
+    def reset_scatter_size(
+        self, data_radius: float | None | tuple[float, float] = None
+    ) -> None:
         """Resize scatter markers to match the current axis scale for each data point."""
         if data_radius is not None:
-            self.point_radius_x_data = data_radius
-            self.point_radius_y_data = data_radius
+            if isinstance(data_radius, tuple):
+                self.point_radius_x_data, self.point_radius_y_data = data_radius
+            else:
+                self.point_radius_x_data = data_radius
+                self.point_radius_y_data = data_radius
         if not self.debug_points:
             return
         coords = np.array([[pt[0], pt[1]] for pt in self.debug_points], dtype=float)
@@ -693,8 +698,8 @@ class DebugPlotContext:
             )
             rect = Rectangle(
                 lower_left,
-                1.0 * self.point_radius_x_data,
-                1.0 * self.point_radius_y_data,
+                0.75 * self.point_radius_x_data,
+                0.75 * self.point_radius_y_data,
                 linewidth=0.0,
             )
             rect.set_facecolor(cmap(norm(corr)))
@@ -811,8 +816,8 @@ def create_debug_context(
             )
         debug_pdf_path = pdf_path
     fig, ax = plt.subplots(figsize=(6, 6), dpi=dpi)
-    ax.set_xlim(-shift_x - 1, shift_x + 1)
-    ax.set_ylim(-shift_y - 1, shift_y + 1)
+    ax.set_xlim(-shift_x - 2, shift_x + 1)
+    ax.set_ylim(-shift_y - 2, shift_y + 1)
     color_mappable = ScalarMappable(norm=Normalize(0.0, 1.0), cmap=SCATTER_COLORMAP)
     color_mappable.set_array([])
     cbar = fig.colorbar(color_mappable, ax=ax, shrink=0.85)

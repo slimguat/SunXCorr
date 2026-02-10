@@ -5,7 +5,7 @@ from __future__ import annotations
 # import field
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import astropy.units as u
 from sunpy.map import GenericMap
@@ -61,6 +61,10 @@ class ProcessResult:
     reference_reprojected: GenericMap | None = (
         None  # Store reprojected reference for potential debugging
     )
-    extra_data: Dict[Any, Any] = field(
-        default_factory=dict
-    )  # For any additional info we want to store
+    extra_data: Dict[str, Any] = field(default_factory=dict)  # For any additional info
+    history: List[Dict[str, Any]] = field(
+        default_factory=list
+    )  # Track optimization history
+    iterations: list[Any] | int = field(
+        default_factory=list
+    )  # Per-iteration details or count

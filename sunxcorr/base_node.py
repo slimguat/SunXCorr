@@ -20,7 +20,7 @@ Public API
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from multiprocessing import Queue, cpu_count
+from multiprocessing import Process, Queue, cpu_count
 from pathlib import Path
 from typing import Any, List, Optional
 
@@ -82,7 +82,7 @@ class CoalignmentNode(ABC):
         Whether this node has been executed
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.node_id: str = ""
         self.node_name: str = ""
         self.parent: Optional["CoalignmentNode"] = None
@@ -96,17 +96,17 @@ class CoalignmentNode(ABC):
         self.result: Optional[ProcessResult] = None
 
         # Resources (inherited if None)
-        self.worker_pool = None
-        self.debug_writer = None
+        self.worker_pool: Optional[Any] = None
+        self.debug_writer: Optional[Any] = None
         self.verbose: Optional[int] = None
         self.output_directory: Optional[Path] = None
         self.n_workers: Optional[int] = None
 
         # Persistent worker infrastructure (managed at root)
-        self.task_queue = None
-        self.result_queue = None
-        self.shared_payloads = None
-        self.worker_processes = None
+        self.task_queue: Optional[Queue[Any]] = None
+        self.result_queue: Optional[Queue[Any]] = None
+        self.shared_payloads: Optional[dict[str, Any]] = None
+        self.worker_processes: Optional[List[Process]] = None
 
         # State
         self.is_executed: bool = False
@@ -178,7 +178,7 @@ class CoalignmentNode(ABC):
                     _vprint(
                         verbose,
                         1,
-                        f"Output directory not set; using default './data_storage/debug_output/'",
+                        "Output directory not set; using default './data_storage/debug_output/'",
                     )
                     self.output_directory = Path("./data_storage/debug_output/")
                     _vprint(
@@ -494,7 +494,7 @@ class CoalignmentNode(ABC):
             self.worker_pool = None
             _vprint(verbose, 2, f"[{self.node_name}] Worker pool closed")
         elif np.abs(verbose) >= 3:
-            _vprint(verbose, 3, f"[{self.node_name}] No worker pool to close")
+            _vprint(verbose, 2, f"[{self.node_name}] No worker pool to close")
 
     def cleanup_debug(self) -> None:
         """Close debug writer if active."""
@@ -513,7 +513,7 @@ class CoalignmentNode(ABC):
                 _vprint(verbose, 1, f"Saved PDF: {debug_pdf}")
             _vprint(verbose, 2, f"[{self.node_name}] Debug writer closed")
         elif np.abs(verbose) >= 3:
-            _vprint(verbose, 3, f"[{self.node_name}] No debug writer to close")
+            _vprint(verbose, 2, f"[{self.node_name}] No debug writer to close")
 
     def cleanup(self) -> None:
         """Clean up all resources (workers and debug output)."""

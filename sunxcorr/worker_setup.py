@@ -14,7 +14,9 @@ from typing import Any, List, Tuple
 from .optimization import _corr_worker_loop
 
 
-def setup_persistent_workers(n_workers: int) -> Tuple[Queue, Queue, Any, List[Process]]:
+def setup_persistent_workers(
+    n_workers: int,
+) -> Tuple[Queue[Any], Queue[Any], Any, List[Process]]:
     """
     Setup persistent worker infrastructure with Manager, queues, and worker processes.
 
@@ -38,8 +40,8 @@ def setup_persistent_workers(n_workers: int) -> Tuple[Queue, Queue, Any, List[Pr
     # Create Manager and shared data structures
     manager = Manager()
     shared_payloads = manager.dict()
-    task_queue: Queue = Queue()
-    result_queue: Queue = Queue()
+    task_queue: Queue[Any] = Queue()
+    result_queue: Queue[Any] = Queue()
 
     # Spawn persistent worker processes
     worker_processes: List[Process] = []
@@ -55,7 +57,7 @@ def setup_persistent_workers(n_workers: int) -> Tuple[Queue, Queue, Any, List[Pr
 
 
 def shutdown_persistent_workers(
-    task_queue: Queue, worker_processes: List[Process], timeout: float = 2.0
+    task_queue: Queue[Any], worker_processes: List[Process], timeout: float = 2.0
 ) -> None:
     """
     Gracefully shutdown persistent worker processes.

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import cast
+from typing import Any, cast
 
 import astropy.units as u
 import numpy as np
@@ -24,7 +24,7 @@ from .utils import (  # pixels_to_arcsec,
     enlarge_map_by_padding,
     get_pixel_scale_quantity,
     reproject_map_to_reference,
-    unbin_map_lattice,
+    
 )
 
 
@@ -140,7 +140,7 @@ class SingleMapProcess(CoalignmentNode):
         _vprint(
             verbose,
             2,
-            f"  Reprojected reference shape: {cast(NDArray, reference_reprojected.data).shape}",
+            f"  Reprojected reference shape: {cast(NDArray[Any], reference_reprojected.data).shape}",
         )
 
         _vprint(
@@ -166,12 +166,12 @@ class SingleMapProcess(CoalignmentNode):
             _vprint(
                 verbose,
                 1,
-                f"  Working binned shape: {cast(NDArray, working_binned.data).shape}",
+                f"  Working binned shape: {cast(NDArray[Any], working_binned.data).shape}",
             )
             _vprint(
                 verbose,
                 1,
-                f"  Reference binned shape: {cast(NDArray, reference_binned.data).shape}",
+                f"  Reference binned shape: {cast(NDArray[Any], reference_binned.data).shape}",
             )
 
             # Scale max_shift for binned pixels (separate X and Y)
@@ -201,12 +201,12 @@ class SingleMapProcess(CoalignmentNode):
         _vprint(
             verbose,
             2,
-            f"  Working map shape: {cast(NDArray, working_binned.data).shape}",
+            f"  Working map shape: {cast(NDArray[Any], working_binned.data).shape}",
         )
         _vprint(
             verbose,
             2,
-            f"  Reference map shape: {cast(NDArray, reference_binned.data).shape}",
+            f"  Reference map shape: {cast(NDArray[Any], reference_binned.data).shape}",
         )
 
         # Run optimization (scale_step=0 for shift-only)
@@ -260,7 +260,7 @@ class SingleMapProcess(CoalignmentNode):
             )
             # Reset scatter size before optimization (like old code)
             if debug_ctx is not None:
-                debug_ctx.reset_scatter_size()
+                debug_ctx.reset_scatter_size((1, 1))
 
         best_params, iterations, history = optimize_shift_and_scale(
             target_data=np.asarray(working_binned.data, dtype=np.float64),
@@ -297,32 +297,29 @@ class SingleMapProcess(CoalignmentNode):
         extended_corrected_map = apply_shift_to_map(
             extended_working_map, shift_x_arcsec, shift_y_arcsec
         )
-        if self.bin_kernel.value >= 1:
-            corrected_map = enlarge_map_by_padding(
-                # unbinned_corrected_map,
-                extended_corrected_map,
-                pad_x=-max_shift_pixels_x,
-                pad_y=-max_shift_pixels_y,
-            )
 
-            corrected_map = Map(
-                working_map.data,
-                corrected_map.meta,
-                plot_settings=working_map.plot_settings,
-            )
-        else:
-            corrected_map = Map(
-                working_map.data,
-                extended_corrected_map.meta,
-                plot_settings=working_map.plot_settings,
-            )
+        corrected_map = enlarge_map_by_padding(
+            extended_corrected_map,
+            pad_x=-max_shift_pixels_x,
+            pad_y=-max_shift_pixels_y,
+        )
 
+        meta = corrected_map.meta.copy()
+        meta["PC1_1"] = extended_corrected_map.meta.get("PC1_1", 1.0)
+        meta["PC1_2"] = extended_corrected_map.meta.get("PC1_2", 0.0)
+        meta["PC2_1"] = extended_corrected_map.meta.get("PC2_1", 0.0)
+        meta["PC2_2"] = extended_corrected_map.meta.get("PC2_2", 1.0)
+        corrected_map = Map(
+            working_map.data,
+            meta,
+            plot_settings=working_map.plot_settings,
+        )
         # Generate debug output
         debug_pdf_path = None
         animation_path = None
 
         if np.abs(verbose) >= 3 and debug_ctx is not None and output_dir is not None:
-            _vprint(verbose, 3, "Generating debug visualizations...")
+            _vprint(verbose, 2, "Generating debug visualizations...")
 
             # Render history plot (exactly like old code)
             history_array = np.array(
@@ -356,15 +353,16 @@ class SingleMapProcess(CoalignmentNode):
 
             # Create blink animation
             animation_path = output_dir / f"blink_{self.node_id}.gif"
-            _vprint(verbose, 3, f"  Creating blink animation: {animation_path}")
-            debug_ctx.render_comparison_animation(
-                ref_map=reference_binned,
-                target_map=working_binned,
-                corrected_map=extended_corrected_map,  # Show corrected in binned space for animation
-                phase_name=self.node_name + "Binned maps",
-                interval=800,
-                n_cycles=3,
-            )
+            _vprint(verbose, 2, f"  Creating blink animation: {animation_path}")
+            if self.bin_kernel.value > 1:
+                debug_ctx.render_comparison_animation(
+                    ref_map=reference_binned,
+                    target_map=working_binned,
+                    corrected_map=extended_corrected_map,  # Show corrected in binned space for animation
+                    phase_name=self.node_name + "Binned maps",
+                    interval=800,
+                    n_cycles=3,
+                )
             debug_ctx.render_comparison_animation(
                 ref_map=reference_reprojected,
                 target_map=working_map,
@@ -393,6 +391,8 @@ class SingleMapProcess(CoalignmentNode):
             debug_pdf_path=debug_pdf_path,
             animation_path=animation_path,
             reference_reprojected=reference_reprojected,  # Store reprojected reference for potential debugging
+            history=history,
+            iterations=iterations,
         )
 
         self.is_executed = True

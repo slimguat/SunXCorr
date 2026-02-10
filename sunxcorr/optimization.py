@@ -45,8 +45,8 @@ def _make_payload_key(
 
 
 def _corr_worker_loop(
-    task_queue: Queue,
-    result_queue: Queue,
+    task_queue: Queue[Any],
+    result_queue: Queue[Any],
     shared_payloads: Dict[str, Dict[str, Any]],
 ) -> None:
     """
@@ -147,8 +147,8 @@ def optimize_shift_and_scale(
     sy0: float | None = None,
     verbose: int = 0,
     debug_ctx: Any = None,
-    task_queue: Optional[Queue] = None,
-    result_queue: Optional[Queue] = None,
+    task_queue: Optional[Queue[Any]] = None,
+    result_queue: Optional[Queue[Any]] = None,
     shared_payloads: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Tuple[Dict[str, float], int, List[Dict[str, float]]]:
     """Optimize shift (and optionally scale) using persistent workers.

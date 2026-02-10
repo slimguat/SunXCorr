@@ -193,7 +193,7 @@ class SyntheticRasterProcess(CoalignmentNode):
             )
             # Reset scatter size before optimization (like old code)
             if debug_ctx is not None:
-                debug_ctx.reset_scatter_size()
+                debug_ctx.reset_scatter_size((1, 1))
 
         best_params, iterations, history = optimize_shift_and_scale(
             target_data=np.asarray(working_map.data, dtype=np.float64),
@@ -240,7 +240,7 @@ class SyntheticRasterProcess(CoalignmentNode):
         animation_path = None
 
         if np.abs(verbose) >= 3 and debug_ctx is not None and output_dir is not None:
-            _vprint(verbose, 3, "Generating debug visualizations...")
+            _vprint(verbose, 2, "Generating debug visualizations...")
 
             # Render history plot (exactly like old code)
             history_array = np.array(
@@ -284,7 +284,7 @@ class SyntheticRasterProcess(CoalignmentNode):
 
             # Create blink animation
             animation_path = output_dir / f"blink_{self.node_id}.gif"
-            _vprint(verbose, 3, f"  Creating blink animation: {animation_path}")
+            _vprint(verbose, 2, f"  Creating blink animation: {animation_path}")
             debug_ctx.render_comparison_animation(
                 ref_map=synthetic_raster,
                 target_map=working_map,
@@ -314,6 +314,8 @@ class SyntheticRasterProcess(CoalignmentNode):
             animation_path=animation_path,
             # Store synthetic raster as "reference_reprojected" for potential debugging
             reference_reprojected=synthetic_raster,
+            history=history,
+            iterations=iterations,
         )
 
         self.is_executed = True

@@ -326,6 +326,24 @@ def build_corrected_wcs_meta_scale_shift(
     # ----- dispatch -----
     if linear_mode == "cd":
         _write_cd(meta, CDp)
+    elif sx_opt == 1.0 and sy_opt == 1.0:
+        _vprint(
+            verbose,
+            2,
+            "No scaling correction (sx_opt=sy_opt=1.0), preserving original linear WCS.",
+        )
+        meta["PC1_1"] = meta.get("PC1_1", 1.0)
+        meta["PC1_2"] = meta.get("PC1_2", 0.0)
+        meta["PC2_1"] = meta.get("PC2_1", 0.0)
+        meta["PC2_2"] = meta.get("PC2_2", 1.0)
+        meta.pop("CD1_1", None)
+        meta.pop("CD1_2", None)
+        meta.pop("CD2_1", None)
+        meta.pop("CD2_2", None)
+        meta["CDELT1"] = meta.get("CDELT1", 1.0)
+        meta["CDELT2"] = meta.get("CDELT2", 1.0)
+        # No scaling correction, preserve original CD or PC+CDELT as-is
+        pass
 
     elif linear_mode == "cdelt_invariant":
         _write_pc_cdelt_invariant(meta, CDp)
@@ -349,7 +367,7 @@ def make_corrected_wcs_map(
     map_in: GenericMap,
     best_params: Dict[str, float],
     verbose: int = 0,
-    linear_mode: WCSLinearMode = "cd_basis_unit",
+    linear_mode: WCSLinearMode = "pc2_unit",
 ) -> GenericMap:
     dx = float(best_params.get("dx", 0.0))
     dy = float(best_params.get("dy", 0.0))
@@ -531,7 +549,7 @@ def get_closest_EUIFSI174_paths(
     # 2) Collect all FITS files in that window
     all_paths: List[Path] = []
     for day in days:
-        _vprint(verbose, 3, f"  Grabbing data for {day}")
+        _vprint(verbose, 2, f"  Grabbing data for {day}")
         all_paths.extend(_grab_EUI_data(day, local_dir, verbose))
 
     if not all_paths:
@@ -692,7 +710,7 @@ def get_EUI_paths(
     # 2) Collect all FITS files across those days
     eui_paths: List[Path] = []
     for day in all_days:
-        _vprint(verbose, 3, f"Grabbing EUI data for {day}")
+        _vprint(verbose, 2, f"Grabbing EUI data for {day}")
         eui_paths.extend(_grab_EUI_data(day, local_dir, verbose))
 
     if not eui_paths:
@@ -712,7 +730,7 @@ def get_EUI_paths(
             return _as_datetime64_ms(dt_obj)
         return None
 
-    _vprint(verbose, 3, "Extracting timestamps from filenames")
+    _vprint(verbose, 2, "Extracting timestamps from filenames")
     vectorized_extract = np.vectorize(_extract_datetime)
     eui_dates = vectorized_extract(eui_paths_sorted)
 
@@ -834,7 +852,7 @@ def get_closest_EUIFSI304_paths(
     # 2) Collect all FITS files in that window
     all_paths: List[Path] = []
     for day in days:
-        _vprint(verbose, 3, f"  Grabbing data for {day}")
+        _vprint(verbose, 2, f"  Grabbing data for {day}")
         all_paths.extend(_grab_EUI_data(day, local_dir, verbose))
 
     if not all_paths:
@@ -897,7 +915,7 @@ def _extract_map_time(
 ) -> np.datetime64:
     if isinstance(entry, GenericMap):
         t = _as_datetime64_ms(entry.date.isot)
-        _vprint(verbose, 3, f"Map time (GenericMap): {t}")
+        _vprint(verbose, 2, f"Map time (GenericMap): {t}")
         return t
     header = None
     for ext in (1, 0):

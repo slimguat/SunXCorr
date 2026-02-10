@@ -41,7 +41,7 @@ def normalized_corr_nan_safe(img1: np.ndarray, img2: np.ndarray) -> float:
 
     valid = np.isfinite(img1) & np.isfinite(img2)
     if not np.any(valid):
-        return 0.0
+        return float(0.0)
 
     a = img1[valid]
     b = img2[valid]
@@ -53,9 +53,8 @@ def normalized_corr_nan_safe(img1: np.ndarray, img2: np.ndarray) -> float:
     denom = np.sqrt(np.dot(a_c, a_c) * np.dot(b_c, b_c))
 
     if denom == 0.0:
-        return 0.0
-
-    return num / denom
+        return float(0.0)
+    return float(num / denom)
 
 
 # ==============================================================
@@ -115,7 +114,7 @@ def squeeze_to_ref_grid(
         order=order,
         cval=cval,
     )
-    return squeezed
+    return cast(np.ndarray, squeezed)
 
 
 # ==============================================================
@@ -236,7 +235,7 @@ def build_corr_context_jit(
 # ==============================================================
 
 
-@jit(cache=True, fastmath=True)
+@jit(cache=True, fastmath=True)  # type: ignore
 def _bilinear_sample_ignore_nan(img: np.ndarray, y: float, x: float) -> float:
     ny, nx = img.shape
     if y < 0.0 or x < 0.0 or y > (ny - 1) or x > (nx - 1):
@@ -286,8 +285,59 @@ def _bilinear_sample_ignore_nan(img: np.ndarray, y: float, x: float) -> float:
     return acc / wsum
 
 
-@jit(cache=True, fastmath=False)
-def _corr_fused_scale_shift(
+# Typed pure-Python implementation (mypy-friendly). The jitted wrapper below
+# calls this function so mypy can analyze the core logic while runtime still
+# benefits from the numba wrapper.
+def _bilinear_sample_ignore_nan_typed(img: np.ndarray, y: float, x: float) -> float:
+    ny, nx = img.shape
+    if y < 0.0 or x < 0.0 or y > (ny - 1) or x > (nx - 1):
+        return np.nan
+
+    y0 = int(np.floor(y))
+    x0 = int(np.floor(x))
+    y1 = y0 + 1
+    x1 = x0 + 1
+
+    if y1 >= ny:
+        y1 = ny - 1
+    if x1 >= nx:
+        x1 = nx - 1
+
+    wy = y - y0
+    wx = x - x0
+
+    w00 = (1.0 - wy) * (1.0 - wx)
+    w01 = (1.0 - wy) * wx
+    w10 = wy * (1.0 - wx)
+    w11 = wy * wx
+
+    v00 = img[y0, x0]
+    v01 = img[y0, x1]
+    v10 = img[y1, x0]
+    v11 = img[y1, x1]
+
+    acc = 0.0
+    wsum = 0.0
+
+    if np.isfinite(v00):
+        acc += w00 * v00
+        wsum += w00
+    if np.isfinite(v01):
+        acc += w01 * v01
+        wsum += w01
+    if np.isfinite(v10):
+        acc += w10 * v10
+        wsum += w10
+    if np.isfinite(v11):
+        acc += w11 * v11
+        wsum += w11
+
+    if wsum == 0.0:
+        return np.nan
+    return acc / wsum
+
+
+def _corr_fused_scale_shift_typed(
     ref: np.ndarray,
     tgt: np.ndarray,
     valid_ref: np.ndarray,
@@ -321,7 +371,7 @@ def _corr_fused_scale_shift(
             yin = inv_sy * y0 + off_y
             xin = inv_sx * x0 + off_x
 
-            b = _bilinear_sample_ignore_nan(tgt, yin, xin)
+            b = _bilinear_sample_ignore_nan_typed(tgt, yin, xin)
             if not np.isfinite(b):
                 continue
 
@@ -360,6 +410,35 @@ def _corr_fused_scale_shift(
         corr *= ratio
 
     return corr
+
+
+@jit(cache=True, fastmath=False)  # type: ignore
+def _corr_fused_scale_shift(
+    ref: np.ndarray,
+    tgt: np.ndarray,
+    valid_ref: np.ndarray,
+    dx_i: int,
+    dy_i: int,
+    inv_sx: float,
+    inv_sy: float,
+    off_x: float,
+    off_y: float,
+    original_valid_count: int,
+) -> float:
+    # Jitted thin wrapper calling the typed implementation. This keeps the
+    # runtime JIT behavior while allowing mypy to analyze `_corr_fused_scale_shift_typed`.
+    return _corr_fused_scale_shift_typed(
+        ref,
+        tgt,
+        valid_ref,
+        dx_i,
+        dy_i,
+        inv_sx,
+        inv_sy,
+        off_x,
+        off_y,
+        original_valid_count,
+    )
 
 
 # ==============================================================
@@ -412,15 +491,17 @@ def correlation_for_params_jit(
     off_y = cy - inv_sy * cy
     off_x = cx - inv_sx * cx
 
-    return _corr_fused_scale_shift(
-        ctx.ref,
-        ctx.tgt,
-        ctx.valid_ref,
-        dx_i,
-        dy_i,
-        inv_sx,
-        inv_sy,
-        off_x,
-        off_y,
-        ctx.original_valid_count,
+    return float(
+        _corr_fused_scale_shift(
+            ctx.ref,
+            ctx.tgt,
+            ctx.valid_ref,
+            dx_i,
+            dy_i,
+            inv_sx,
+            inv_sy,
+            off_x,
+            off_y,
+            ctx.original_valid_count,
+        )
     )
