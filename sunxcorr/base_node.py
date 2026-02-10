@@ -19,13 +19,13 @@ Public API
 
 from __future__ import annotations
 
-from matplotlib.backends.backend_pdf import PdfPages
 from abc import ABC, abstractmethod
 from multiprocessing import Queue, cpu_count
 from pathlib import Path
 from typing import Any, List, Optional
 
 import numpy as np
+from matplotlib.backends.backend_pdf import PdfPages
 from sunpy.map import GenericMap
 
 from .process_result import ProcessResult
@@ -167,19 +167,39 @@ class CoalignmentNode(ABC):
         """
         verbose = self.get_verbose_level()
         verbose = verbose if verbose is not None else 0
-        if abs(verbose)>=3:
+        if abs(verbose) >= 3:
             if self.get_debug_writer() is None:
-                _vprint(verbose, 2, f"[{self.node_name}] No debug writer found; creating one.")
+                _vprint(
+                    verbose,
+                    2,
+                    f"[{self.node_name}] No debug writer found; creating one.",
+                )
                 if self.output_directory is None:
-                    _vprint(verbose, 1, f"Output directory not set; using default './data_storage/debug_output/'")
+                    _vprint(
+                        verbose,
+                        1,
+                        f"Output directory not set; using default './data_storage/debug_output/'",
+                    )
                     self.output_directory = Path("./data_storage/debug_output/")
-                    _vprint(verbose, 1, f"Output directory set to: {self.output_directory}")
+                    _vprint(
+                        verbose, 1, f"Output directory set to: {self.output_directory}"
+                    )
                 self.output_directory.mkdir(parents=True, exist_ok=True)
-                date = self.get_reference_map().meta.get("date-obs", None).replace(":", "").replace("-", "").replace("T", "_") if self.get_reference_map().meta.get("date-obs", None) else ""
-                debug_pdf_path = self.output_directory / f"debug_complete_pipeline_{date}.pdf"
+                date = (
+                    self.get_reference_map()
+                    .meta.get("date-obs", None)
+                    .replace(":", "")
+                    .replace("-", "")
+                    .replace("T", "_")
+                    if self.get_reference_map().meta.get("date-obs", None)
+                    else ""
+                )
+                debug_pdf_path = (
+                    self.output_directory / f"debug_complete_pipeline_{date}.pdf"
+                )
                 self.debug_writer = PdfPages(debug_pdf_path)
                 _vprint(verbose, 1, f"Debug PDF writer created at: {debug_pdf_path}")
-                    
+
         working_map = self.get_working_map()
 
         if self.children:

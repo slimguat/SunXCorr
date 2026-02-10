@@ -1,9 +1,7 @@
-import os
 import tempfile
 from pathlib import Path
 
 from sunxcorr.synthetic_raster_process import SyntheticRasterProcess
-from sunxcorr.single_map_process import SingleMapProcess
 
 
 def test_synthetic_raster_process_short_sequence(tmp_path=None):
@@ -20,7 +18,9 @@ def test_synthetic_raster_process_short_sequence(tmp_path=None):
         # Try alternate path at repo root
         fsi_dir = repo_root / "fits_files" / "FSI"
 
-    files = sorted([p for p in fsi_dir.iterdir() if p.suffix.lower() in (".fits", ".fit")])[:4]
+    files = sorted(
+        [p for p in fsi_dir.iterdir() if p.suffix.lower() in (".fits", ".fit")]
+    )[:4]
     if len(files) < 2:
         # Not enough sample data to run this test in this environment; skip.
         return
@@ -35,6 +35,7 @@ def test_synthetic_raster_process_short_sequence(tmp_path=None):
 
     # Build maps for sequence
     from sunpy.map import Map
+
     from sunxcorr import Orchestrator
 
     seq_maps = [Map(p) for p in files]
@@ -53,7 +54,9 @@ def test_synthetic_raster_process_short_sequence(tmp_path=None):
     import astropy.units as u
 
     # Configure a minimal synthetic raster process (shift-only)
-    sr = SyntheticRasterProcess(max_shift=15.0 * u.arcsec, scale_step=0.0, n_neighbors=8)
+    sr = SyntheticRasterProcess(
+        max_shift=15.0 * u.arcsec, scale_step=0.0, n_neighbors=8
+    )
     root.add_child(sr)
 
     # Execute pipeline
@@ -61,4 +64,4 @@ def test_synthetic_raster_process_short_sequence(tmp_path=None):
 
     assert sr.result is not None
     # Ensure shift-like outputs exist in ProcessResult
-    assert hasattr(sr.result, 'shift_arcsec') or hasattr(sr.result, 'shift_pixels')
+    assert hasattr(sr.result, "shift_arcsec") or hasattr(sr.result, "shift_pixels")

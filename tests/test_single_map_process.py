@@ -1,12 +1,14 @@
 import sys
 from pathlib import Path
+
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sunpy.map import Map
-from sunxcorr import Orchestrator, SingleMapProcess
-import astropy.units as u
+import astropy.units as u  # noqa: E402
+from sunpy.map import Map  # noqa: E402
+
+from sunxcorr import Orchestrator, SingleMapProcess  # noqa: E402
 
 
 def _pick_maps():
@@ -28,7 +30,9 @@ def test_single_map_minimal_run():
     root.base_target_map = target_map
     root.reference_map = reference_map
     root.verbose = 0
-    proc = SingleMapProcess(max_shift=5.0 * u.arcsec, bin_kernel=0.0 * u.arcsec, n_neighbors=4)
+    proc = SingleMapProcess(
+        max_shift=5.0 * u.arcsec, bin_kernel=0.0 * u.arcsec, n_neighbors=4
+    )
     root.add_child(proc)
 
     # run pipeline

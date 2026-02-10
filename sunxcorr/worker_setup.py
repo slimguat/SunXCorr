@@ -5,25 +5,27 @@ worker processes that execute correlation workloads. Workers are intended
 to be started once (at the root orchestrator) and reused across many
 optimization calls to avoid process spawn overhead.
 """
+
 from __future__ import annotations
 
 from multiprocessing import Manager, Process, Queue
-from typing import List, Tuple, Any
+from typing import Any, List, Tuple
+
 from .optimization import _corr_worker_loop
 
 
 def setup_persistent_workers(n_workers: int) -> Tuple[Queue, Queue, Any, List[Process]]:
     """
     Setup persistent worker infrastructure with Manager, queues, and worker processes.
-    
+
     This should be called once at the root level before optimization begins.
     Workers remain alive until explicitly shutdown.
-    
+
     Parameters
     ----------
     n_workers : int
         Number of worker processes to spawn
-    
+
     Returns
     -------
     tuple
@@ -38,26 +40,26 @@ def setup_persistent_workers(n_workers: int) -> Tuple[Queue, Queue, Any, List[Pr
     shared_payloads = manager.dict()
     task_queue: Queue = Queue()
     result_queue: Queue = Queue()
-    
+
     # Spawn persistent worker processes
     worker_processes: List[Process] = []
     for _ in range(n_workers):
-        proc = Process(target=_corr_worker_loop, args=(task_queue, result_queue, shared_payloads))
+        proc = Process(
+            target=_corr_worker_loop, args=(task_queue, result_queue, shared_payloads)
+        )
         proc.daemon = True
         proc.start()
         worker_processes.append(proc)
-    
+
     return task_queue, result_queue, shared_payloads, worker_processes
 
 
 def shutdown_persistent_workers(
-    task_queue: Queue,
-    worker_processes: List[Process],
-    timeout: float = 2.0
+    task_queue: Queue, worker_processes: List[Process], timeout: float = 2.0
 ) -> None:
     """
     Gracefully shutdown persistent worker processes.
-    
+
     Parameters
     ----------
     task_queue : Queue
@@ -70,7 +72,7 @@ def shutdown_persistent_workers(
     # Send None sentinel to each worker
     for _ in worker_processes:
         task_queue.put(None)
-    
+
     # Wait for workers to finish, then terminate if needed
     for proc in worker_processes:
         proc.join(timeout=timeout)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 import copy
 import datetime
 import re
@@ -1495,6 +1494,7 @@ def bin_map(map_obj: GenericMap, bin_factor: int | Tuple[int, int]) -> GenericMa
     plot_settings = getattr(map_obj, "plot_settings", None)
     return cast(GenericMap, Map(binned_data, new_meta, plot_settings=plot_settings))
 
+
 def unbin_map_lattice(
     binned_map: GenericMap,
     bin_factor: Union[int, Tuple[int, int]],
@@ -1554,8 +1554,6 @@ def unbin_map_lattice(
 
     plot_settings = getattr(binned_map, "plot_settings", None)
     return cast(GenericMap, Map(out, new_meta, plot_settings=plot_settings))
-
-
 
 
 def apply_shift_to_map(

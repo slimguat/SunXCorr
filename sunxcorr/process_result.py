@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+# import field
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Tuple, Union
+from typing import Any, Dict, Tuple, Union
 
 import astropy.units as u
 from sunpy.map import GenericMap
@@ -13,7 +14,7 @@ from sunpy.map import GenericMap
 @dataclass
 class ProcessResult:
     """Result from a single coalignment process execution.
-    
+
     Attributes
     ----------
     process_id : str
@@ -43,7 +44,7 @@ class ProcessResult:
     animation_path : Path | str | None
         Path or string path to comparison GIF (if generated)
     """
-    
+
     process_id: str
     process_name: str
     input_map: GenericMap
@@ -57,4 +58,9 @@ class ProcessResult:
     execution_time: float = 0.0
     debug_pdf_path: Union[Path, str, None] = None
     animation_path: Union[Path, str, None] = None
-    reference_reprojected: GenericMap | None = None  # Store reprojected reference for potential debugging
+    reference_reprojected: GenericMap | None = (
+        None  # Store reprojected reference for potential debugging
+    )
+    extra_data: Dict[Any, Any] = field(
+        default_factory=dict
+    )  # For any additional info we want to store

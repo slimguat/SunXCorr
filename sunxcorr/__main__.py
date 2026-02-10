@@ -2,16 +2,20 @@
 
 Provides minimal CLI to inspect package metadata and run quick checks.
 """
+
 from __future__ import annotations
 
 import argparse
 import sys
-from . import __version__, __author__
+
+from . import __author__, __version__
 
 
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="sunxcorr", description="SunXCorr utilities")
-    p.add_argument("--version", action="store_true", help="print package version and exit")
+    p.add_argument(
+        "--version", action="store_true", help="print package version and exit"
+    )
     return p
 
 

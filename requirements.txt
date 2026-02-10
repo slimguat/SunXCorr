@@ -7,4 +7,8 @@ matplotlib
 mpl_animators
 reproject
 pandas
-git+https://github.com/slimguat/saffron-spice.git
+# Development / tooling
+pre-commit
+black
+isort
+flake8

@@ -3,6 +3,7 @@ This avoids importing project-level __init__.py which references missing modules
 
 It imports our test modules directly and calls their test functions.
 """
+
 import importlib.util
 import sys
 from pathlib import Path
@@ -11,10 +12,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 MODULES = [
-    'tests.test_io_and_maps',
-    'tests.test_reprojection_and_utils',
-    'tests.test_single_map_process',
-    'tests.test_synthetic_raster_process',
+    "tests.test_io_and_maps",
+    "tests.test_reprojection_and_utils",
+    "tests.test_single_map_process",
+    "tests.test_synthetic_raster_process",
 ]
 
 results = []
@@ -27,18 +28,18 @@ for mod_name in MODULES:
         continue
     # execute callables starting with test_
     for name in dir(mod):
-        if name.startswith('test_'):
+        if name.startswith("test_"):
             fn = getattr(mod, name)
             try:
-                print(f"RUN {mod_name}.{name}() ... ", end='')
+                print(f"RUN {mod_name}.{name}() ... ", end="")
                 fn()
                 print("OK")
-                results.append((f"{mod_name}.{name}", True, ''))
+                results.append((f"{mod_name}.{name}", True, ""))
             except Exception as e:
                 print(f"FAIL: {e}")
                 results.append((f"{mod_name}.{name}", False, str(e)))
 
-print('\nSummary:')
+print("\nSummary:")
 for r in results:
     print(r)
 

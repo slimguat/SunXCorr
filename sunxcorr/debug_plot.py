@@ -370,7 +370,14 @@ class DebugPlotContext:
         # Generate filename based on phase
         timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         phase_suffix = f"_{phase_name}" if phase_name else ""
-        date = target_map.meta.get("date-obs", None).replace(":", "").replace("-", "").replace("T", "_") if target_map.meta.get("date-obs", None) else timestamp
+        date = (
+            target_map.meta.get("date-obs", None)
+            .replace(":", "")
+            .replace("-", "")
+            .replace("T", "_")
+            if target_map.meta.get("date-obs", None)
+            else timestamp
+        )
         gif_path = (
             self.pdf_path.parent / f"comparison_animation{date}_{phase_suffix}.gif"
         )
