@@ -8,10 +8,11 @@ avoid recomputing masks per call.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Optional, Tuple, cast
+
 import numpy as np
 from numba import jit
-from typing import Optional, Tuple, cast
-from dataclasses import dataclass
 from scipy.ndimage import affine_transform
 
 
@@ -101,8 +102,7 @@ def squeeze_to_ref_grid(
         cy, cx = center
 
     # affine: out_coord -> in_coord = A*out_coord + offset
-    A = np.array([[1.0 / squeeze_y, 0.0],
-                  [0.0, 1.0 / squeeze_x]], dtype=np.float64)
+    A = np.array([[1.0 / squeeze_y, 0.0], [0.0, 1.0 / squeeze_x]], dtype=np.float64)
 
     center_vec = np.array([cy, cx], dtype=np.float64)
     offset = center_vec - A @ center_vec
@@ -110,10 +110,10 @@ def squeeze_to_ref_grid(
     squeezed = affine_transform(
         target_img,
         A,
-        offset=cast(float,offset),
+        offset=cast(float, offset),
         output_shape=ref_shape,
         order=order,
-        cval=cval
+        cval=cval,
     )
     return squeezed
 
@@ -127,7 +127,7 @@ def shift_image(img: np.ndarray, dx: int, dy: int) -> np.ndarray:
     Positive dx -> right, positive dy -> down.
     """
     ny, nx = img.shape
-    out = np.full_like(img,np.nan)
+    out = np.full_like(img, np.nan)
 
     if dx >= 0:
         xs, xe = 0, nx - dx
@@ -146,7 +146,6 @@ def shift_image(img: np.ndarray, dx: int, dy: int) -> np.ndarray:
     # no overlap -> return all-NaN
     if ys >= ye or xs >= xe or yd >= ye2 or xd >= xe2:
         return np.full_like(img, np.nan)
-
 
     out[yd:ye2, xd:xe2] = img[ys:ye, xs:xe]
     return out
@@ -186,17 +185,21 @@ def correlation_for_params(
 
     # 3) correlation at zero relative shift (already shifted)
     corr = normalized_corr_nan_safe(ref_img, shifted)
-    
+
     # 4) penalty for number of valid pixels overlapping
     original_valid = np.isfinite(ref_img) & np.isfinite(target_img)
     warped_valid = np.isfinite(ref_img) & np.isfinite(shifted)
-    ratio = np.sum(warped_valid) / np.sum(original_valid) if np.sum(original_valid) > 0 else 0.0
+    ratio = (
+        np.sum(warped_valid) / np.sum(original_valid)
+        if np.sum(original_valid) > 0
+        else 0.0
+    )
     # print(ratio,corr,dx,dy,squeeze_x,squeeze_y)
-    if ratio>1: # should not happen, but just in case
+    if ratio > 1:  # should not happen, but just in case
         ratio = 1.0
-    if ratio>0.5: # if half of pixels are still valid, no penalty
+    if ratio > 0.5:  # if half of pixels are still valid, no penalty
         ratio = 1.0
-    if ratio>0.0:
+    if ratio > 0.0:
         ratio = ratio  # double the penalty effect if less than half pixels are lost
     corr *= ratio
     return corr
@@ -206,6 +209,7 @@ def correlation_for_params(
 # JIT Context (precompute masks once per ref/target pair)
 # ==============================================================
 
+
 @dataclass
 class CorrContextJIT:
     ref: np.ndarray
@@ -214,20 +218,26 @@ class CorrContextJIT:
     original_valid_count: int
 
 
-def build_corr_context_jit(ref_img: np.ndarray, target_img: np.ndarray) -> CorrContextJIT:
+def build_corr_context_jit(
+    ref_img: np.ndarray, target_img: np.ndarray
+) -> CorrContextJIT:
     ref = np.asarray(ref_img, dtype=np.float64)
     tgt = np.asarray(target_img, dtype=np.float64)
+    assert ref.shape == tgt.shape, "ref and target must have the same shape for context"
     valid_ref = np.isfinite(ref)
     original_valid_count = int((valid_ref & np.isfinite(tgt)).sum())
-    return CorrContextJIT(ref=ref, tgt=tgt, valid_ref=valid_ref, original_valid_count=original_valid_count)
+    return CorrContextJIT(
+        ref=ref, tgt=tgt, valid_ref=valid_ref, original_valid_count=original_valid_count
+    )
 
 
 # ==============================================================
 # JIT helpers
 # ==============================================================
 
+
 @jit(cache=True, fastmath=True)
-def _bilinear_sample_ignore_nan(img, y, x):
+def _bilinear_sample_ignore_nan(img: np.ndarray, y: float, x: float) -> float:
     ny, nx = img.shape
     if y < 0.0 or x < 0.0 or y > (ny - 1) or x > (nx - 1):
         return np.nan
@@ -277,11 +287,18 @@ def _bilinear_sample_ignore_nan(img, y, x):
 
 
 @jit(cache=True, fastmath=False)
-def _corr_fused_scale_shift(ref, tgt, valid_ref,
-                           dx_i, dy_i,
-                           inv_sx, inv_sy,
-                           off_x, off_y,
-                           original_valid_count):
+def _corr_fused_scale_shift(
+    ref: np.ndarray,
+    tgt: np.ndarray,
+    valid_ref: np.ndarray,
+    dx_i: int,
+    dy_i: int,
+    inv_sx: float,
+    inv_sy: float,
+    off_x: float,
+    off_y: float,
+    original_valid_count: int,
+) -> float:
     sum_a = 0.0
     sum_b = 0.0
     sum_a2 = 0.0
@@ -349,6 +366,7 @@ def _corr_fused_scale_shift(ref, tgt, valid_ref,
 # Public JIT objective (same signature as correlation_for_params)
 # ==============================================================
 
+
 def correlation_for_params_jit(
     ref_img: np.ndarray,
     target_img: np.ndarray,
@@ -395,13 +413,14 @@ def correlation_for_params_jit(
     off_x = cx - inv_sx * cx
 
     return _corr_fused_scale_shift(
-        ctx.ref, ctx.tgt, ctx.valid_ref,
-        dx_i, dy_i,
-        inv_sx, inv_sy,
-        off_x, off_y,
-        ctx.original_valid_count
+        ctx.ref,
+        ctx.tgt,
+        ctx.valid_ref,
+        dx_i,
+        dy_i,
+        inv_sx,
+        inv_sy,
+        off_x,
+        off_y,
+        ctx.original_valid_count,
     )
-
-
-
-
