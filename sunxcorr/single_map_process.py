@@ -1,4 +1,14 @@
-"""Single-map cross-correlation process (shift-only optimization)."""
+"""Single-map cross-correlation process (shift-only optimization).
+
+Examples
+--------
+>>> from sunxcorr.single_map_process import SingleMapProcess
+>>> import astropy.units as u
+>>> # Create a process instance (do not call execute in doctest)
+>>> p = SingleMapProcess(max_shift=10.0 * u.arcsec, bin_kernel=0.0 * u.arcsec)
+>>> p.node_id.startswith('single_map')
+True
+"""
 
 from __future__ import annotations
 

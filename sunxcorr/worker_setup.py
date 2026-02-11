@@ -4,6 +4,12 @@ This module creates manager-backed shared structures and spawns persistent
 worker processes that execute correlation workloads. Workers are intended
 to be started once (at the root orchestrator) and reused across many
 optimization calls to avoid process spawn overhead.
+
+Examples
+--------
+>>> from sunxcorr.worker_setup import setup_persistent_workers
+>>> callable(setup_persistent_workers)
+True
 """
 
 from __future__ import annotations
@@ -36,6 +42,12 @@ def setup_persistent_workers(
         - result_queue: Queue for receiving results from workers
         - shared_payloads: Manager.dict() for storing ref/target images
         - worker_processes: List of Process objects
+    
+    Examples
+    --------
+    >>> from sunxcorr.worker_setup import setup_persistent_workers
+    >>> callable(setup_persistent_workers)
+    True
     """
     # Create Manager and shared data structures
     manager = Manager()

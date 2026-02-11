@@ -594,10 +594,22 @@ def correlation_for_params_jit(
     ctx: Optional[CorrContextJIT] = None,
 ) -> float:
     """
-    Drop-in replacement for correlation_for_params.
+    Drop-in replacement for `correlation_for_params` using the JIT core.
 
-    - Same params.
-    - You can optionally pass a prebuilt ctx to avoid rebuilding masks each call.
+    Notes
+    -----
+    - Signature matches :func:`correlation_for_params` so it can be used
+      interchangeably in optimization code paths.
+    - Passing a prebuilt ``ctx`` (from :func:`build_corr_context_jit`) avoids
+      recomputing masks when evaluating multiple parameter combinations.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> ref = np.array([[1.0, 2.0], [3.0, 4.0]])
+    >>> tgt = ref.copy()
+    >>> correlation_for_params_jit(ref, tgt, 0.0, 0.0, 1.0, 1.0)
+    1.0
     """
 
     # Build / reuse context

@@ -35,6 +35,16 @@ def make_blink_animation(
         Interval between frames in milliseconds
     n_cycles : int
         Number of blink cycles
+    
+    Examples
+    --------
+    Example usage (display-only; not executed in tests)::
+
+        from pathlib import Path
+        from sunpy.map import Map
+        # Construct or load maps as `before_map` and `after_map`.
+        out = Path("/tmp/blink.gif")
+        make_blink_animation(before_map, after_map, out, title="Compare", interval=500)
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)

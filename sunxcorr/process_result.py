@@ -43,6 +43,27 @@ class ProcessResult:
         Path or string path to debug PDF (if generated)
     animation_path : Path | str | None
         Path or string path to comparison GIF (if generated)
+
+    Examples
+    --------
+    >>> from sunxcorr.process_result import ProcessResult
+    >>> import astropy.units as u
+    >>> from sunpy.map import Map
+    >>> # Create a minimal dummy ProcessResult (maps can be simple placeholders)
+    >>> dummy_meta = {'CRPIX1':1.0,'CRPIX2':1.0}
+    >>> m = Map([[1.0]], dummy_meta)
+    >>> res = ProcessResult(
+    ...     process_id='p1',
+    ...     process_name='test',
+    ...     input_map=m,
+    ...     output_map=m,
+    ...     shift_arcsec=(1.0*u.arcsec, 2.0*u.arcsec),
+    ...     shift_pixels=(1.0,2.0),
+    ...     scale_factors=(1.0,1.0),
+    ...     correlation_peak=0.9,
+    ... )
+    >>> res.process_id
+    'p1'
     """
 
     process_id: str
@@ -68,3 +89,4 @@ class ProcessResult:
     iterations: list[Any] | int = field(
         default_factory=list
     )  # Per-iteration details or count
+

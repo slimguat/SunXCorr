@@ -2,6 +2,13 @@
 
 This module is large and legacy; the above per-file mypy relaxations are
 temporary to allow incremental typing fixes.
+
+Examples
+--------
+>>> # Safe import-only example (do not run heavy I/O in doctests)
+>>> from sunxcorr import utils
+>>> hasattr(utils, '_as_datetime64_ms')
+True
 """
 
 from __future__ import annotations

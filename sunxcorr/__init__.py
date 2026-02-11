@@ -2,6 +2,13 @@
 
 Public API re-exports for the `sunxcorr` package. This initializer
 exposes the main classes used by downstream code.
+
+Examples
+--------
+Import the main API classes:
+
+    from sunxcorr import Orchestrator, SingleMapProcess
+
 """
 
 from __future__ import annotations

@@ -3,6 +3,12 @@
 The helpers in this module encapsulate Matplotlib-related logic so that the
 main optimizer can request PDF snapshots without pulling plotting code into the
 core algorithm.
+
+Examples
+--------
+>>> from sunxcorr.debug_plot import DebugPlotContext, create_debug_context
+>>> callable(create_debug_context)
+True
 """
 
 from __future__ import annotations

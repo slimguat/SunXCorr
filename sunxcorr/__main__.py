@@ -1,6 +1,12 @@
 """Command-line entry for `sunxcorr`.
 
 Provides minimal CLI to inspect package metadata and run quick checks.
+
+Examples
+--------
+>>> from sunxcorr import __version__
+>>> isinstance(__version__, str)
+True
 """
 
 from __future__ import annotations

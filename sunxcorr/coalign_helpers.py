@@ -3,6 +3,13 @@
 These functions encapsulate math-heavy logic used by `Coaligner` so the main
 class can focus on orchestration. Each helper has a focused responsibility and
 is documented for reuse.
+
+Examples
+--------
+>>> from sunxcorr.coalign_helpers import build_shift_structures
+>>> pts, offs = build_shift_structures(1,1)
+>>> len(pts) == 9
+True
 """
 
 from __future__ import annotations

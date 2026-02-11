@@ -1,4 +1,17 @@
-"""Optimization functions for coalignment (shift and/or scale search)."""
+"""Optimization functions for coalignment (shift and/or scale search).
+
+Examples
+--------
+A minimal usage example for generating a payload key (used internally by the
+worker cache):
+
+>>> import numpy as np
+>>> from sunxcorr.optimization import _make_payload_key
+>>> a = np.array([[1.0]], dtype=float)
+>>> b = np.array([[2.0]], dtype=float)
+>>> isinstance(_make_payload_key(a, b, None), str)
+True
+"""
 
 from __future__ import annotations
 
@@ -36,6 +49,23 @@ def _make_payload_key(
     ref_img: np.ndarray, target_img: np.ndarray, center: Tuple[float, float] | None
 ) -> str:
     """Generate a unique key for a worker payload based on data characteristics."""
+    """
+    Generate a unique key for a worker payload based on data characteristics.
+
+    The function computes a short SHA-256 hex digest from the bytes of the
+    reference and target image arrays and an optional center coordinate. The
+    returned key is the first 16 hex characters of the digest and is suitable
+    for use as a dictionary key when caching large shared payloads.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> a = np.array([[1.0]], dtype=float)
+    >>> b = np.array([[2.0]], dtype=float)
+    >>> k = _make_payload_key(a, b, None)
+    >>> isinstance(k, str) and len(k) == 16
+    True
+    """
     hasher = hashlib.sha256()
     hasher.update(ref_img.tobytes())
     hasher.update(target_img.tobytes())

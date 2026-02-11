@@ -3,6 +3,12 @@
 The helpers in this module encapsulate Matplotlib-related logic so that the
 main optimizer can request PDF snapshots without pulling plotting code into the
 core algorithm.
+
+Examples
+--------
+>>> from sunxcorr.coalign_debug import blink_maps
+>>> callable(blink_maps)
+True
 """
 
 from __future__ import annotations

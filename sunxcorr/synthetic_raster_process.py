@@ -1,4 +1,13 @@
-"""Synthetic raster generation and optimization process."""
+"""Synthetic raster generation and optimization process.
+
+Examples
+--------
+>>> from sunxcorr.synthetic_raster_process import SyntheticRasterProcess
+>>> import astropy.units as u
+>>> p = SyntheticRasterProcess(max_shift=15.0 * u.arcsec, scale_step=0.0)
+>>> 'synthetic_raster' in p.node_id
+True
+"""
 
 from __future__ import annotations
 

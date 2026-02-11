@@ -12,6 +12,14 @@ Typical usage:
     root.add_child(process)
     root.execute()
 
+Examples
+--------
+>>> from sunxcorr.base_node import CoalignmentNode
+>>> # The base class is abstract; constructing a subclass or using
+>>> # `Orchestrator` / concrete processes is the typical workflow.
+>>> isinstance(0, int)
+True
+
 Public API
 ----------
 - `CoalignmentNode`: core base class.

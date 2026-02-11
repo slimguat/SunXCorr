@@ -1,4 +1,12 @@
-"""Orchestrator node for managing coalignment processes."""
+"""Orchestrator node for managing coalignment processes.
+
+Examples
+--------
+>>> from sunxcorr.orchestrator import Orchestrator
+>>> o = Orchestrator(n_workers=2)
+>>> o.node_name.startswith('Orchestrator')
+True
+"""
 
 from __future__ import annotations
 
