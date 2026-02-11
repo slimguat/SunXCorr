@@ -68,7 +68,6 @@ python -m pytest tests/test_synthetic_raster_process.py::test_synthetic_raster_p
 ```
 
 Notes:
-- `pytest` will create a `.pytest_cache/` directory — this is normal and is ignored by `.gitignore`.
 - If a test appears to hang in multiprocessing code, enable worker debug logging by setting `SUNXCORR_DEBUG_LOG=1` before running the test; this will write diagnostic output to `/tmp/sunxcorr_worker_debug.log` (opt-in only).
 
 ---
