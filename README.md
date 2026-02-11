@@ -120,48 +120,7 @@ Notes:
 
 ---
 
-## Developer tooling: linters and static checks
-
-What are linters and why run them?
-
-- Linters and formatters automatically check and/or reformat code to maintain consistency and catch common issues early. They are not tests but they improve code quality and reduce review friction.
-
-Common tools used with this project:
-- `black` — formats Python code to a consistent style.
-- `isort` — sorts and groups imports.
-- `mypy` — optional static type checker for Python type hints.
-- `flake8` — additional linting rules (optional).
-
-Commands to run them (using the project environment):
-
-```bash
-/home/smzergua/workshop/2026/envs/SAFFRON_ENV/bin/python -m isort . --profile black
-/home/smzergua/workshop/2026/envs/SAFFRON_ENV/bin/python -m black .
-/home/smzergua/workshop/2026/envs/SAFFRON_ENV/bin/python -m mypy -p sunxcorr --ignore-missing-imports
-```
-
-Tips:
-- Run formatters before committing to keep diffs small and consistent.
-- `mypy` will create `.mypy_cache/` — this is ignored in the repo.
-
----
-
-## What is a PR (Pull Request)?
-
-- A Pull Request (PR) is how you propose changes to be merged into the main repository (on platforms like GitHub or GitLab). Typical workflow:
-
-1. Create a branch: `git checkout -b feat/your-feature`.
-2. Make changes, run tests and linters locally.
-3. Commit and push your branch: `git push origin feat/your-feature`.
-4. Open a PR on the remote and request reviewers.
-5. Address comments and merge once approved.
-
-Best practices for PRs in this repository:
-- Keep PRs focused on a single concern.
-- Ensure `pytest` and `mypy` pass locally before opening the PR.
-- Include a short description of what changed and why in the PR body.
-
----
+## Troubleshooting
 
 ## Troubleshooting
 
