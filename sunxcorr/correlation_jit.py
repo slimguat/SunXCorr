@@ -412,6 +412,85 @@ def _corr_fused_scale_shift_typed(
     return corr
 
 
+# Numba-friendly implementation: a copy of the typed core that calls the
+# already-jitted `_bilinear_sample_ignore_nan`. Keeping this separate avoids
+# Numba trying to analyze the pure-Python `_corr_fused_scale_shift_typed`.
+@jit(cache=True, fastmath=False)  # type: ignore
+def _corr_fused_scale_shift_numba(
+    ref: np.ndarray,
+    tgt: np.ndarray,
+    valid_ref: np.ndarray,
+    dx_i: int,
+    dy_i: int,
+    inv_sx: float,
+    inv_sy: float,
+    off_x: float,
+    off_y: float,
+    original_valid_count: int,
+) -> float:
+    sum_a = 0.0
+    sum_b = 0.0
+    sum_a2 = 0.0
+    sum_b2 = 0.0
+    sum_ab = 0.0
+    n = 0
+
+    ny, nx = ref.shape
+
+    for y in range(ny):
+        for x in range(nx):
+            if not valid_ref[y, x]:
+                continue
+
+            # undo integer shift on the scaled grid
+            y0 = y - dy_i
+            x0 = x - dx_i
+
+            # map scaled-grid coord -> original tgt coord
+            yin = inv_sy * y0 + off_y
+            xin = inv_sx * x0 + off_x
+
+            b = _bilinear_sample_ignore_nan(tgt, yin, xin)
+            if not np.isfinite(b):
+                continue
+
+            a = ref[y, x]
+            sum_a += a
+            sum_b += b
+            sum_a2 += a * a
+            sum_b2 += b * b
+            sum_ab += a * b
+            n += 1
+
+    if n == 0:
+        return 0.0
+
+    inv_n = 1.0 / n
+    cov = sum_ab - (sum_a * sum_b) * inv_n
+    var_a = sum_a2 - (sum_a * sum_a) * inv_n
+    var_b = sum_b2 - (sum_b * sum_b) * inv_n
+
+    if var_a <= 0.0 or var_b <= 0.0:
+        corr = 0.0
+    else:
+        denom = np.sqrt(var_a * var_b)
+        if denom <= 0.0 or (not np.isfinite(denom)):
+            corr = 0.0
+        else:
+            corr = cov / denom
+
+    # penalty for overlap
+    if original_valid_count > 0:
+        ratio = n / original_valid_count
+        if ratio > 1.0:
+            ratio = 1.0
+        if ratio > 0.5:
+            ratio = 1.0
+        corr *= ratio
+
+    return corr
+
+
 @jit(cache=True, fastmath=False)  # type: ignore
 def _corr_fused_scale_shift(
     ref: np.ndarray,
@@ -427,7 +506,7 @@ def _corr_fused_scale_shift(
 ) -> float:
     # Jitted thin wrapper calling the typed implementation. This keeps the
     # runtime JIT behavior while allowing mypy to analyze `_corr_fused_scale_shift_typed`.
-    return _corr_fused_scale_shift_typed(
+    return _corr_fused_scale_shift_numba(
         ref,
         tgt,
         valid_ref,

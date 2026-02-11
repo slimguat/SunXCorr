@@ -1,4 +1,8 @@
-"""Utility functions for coalignment processes."""
+"""Utility functions for coalignment processes.
+
+This module is large and legacy; the above per-file mypy relaxations are
+temporary to allow incremental typing fixes.
+"""
 
 from __future__ import annotations
 
@@ -36,14 +40,22 @@ from astropy.visualization import (
 )
 from astropy.wcs import WCS
 from matplotlib.colors import Normalize
-from numpy.typing import NDArray
+from typing import Any as _Any
+
+# Use a concrete NDArray[Any] alias at runtime and for type checking.
+# Importing and subscripting numpy.typing.NDArray is safe here and avoids
+# "Bad number of arguments for type alias" errors when the module is
+# analyzed by mypy or executed.
+from numpy.typing import NDArray as _NDArray
+
+NDArray = _NDArray[_Any]
 from reproject import reproject_interp
 from scipy.ndimage import map_coordinates, uniform_filter
 from sunpy.map import GenericMap, Map
 
 
 # Small helper: cast various date-like inputs to numpy.datetime64[ms]
-def _as_datetime64_ms(val) -> np.ndarray:
+def _as_datetime64_ms(val: _Any) -> Union[np.datetime64, NDArray]:
     """Cast a value to numpy.datetime64 with millisecond precision.
 
     This is a concise helper used to normalize various inputs (str, datetime,
@@ -165,7 +177,7 @@ def build_corrected_wcs_meta_scale_shift(
             - updated CRVAL1/2
             - corrected linear mapping stored per `linear_mode`
     """
-    meta = copy.deepcopy(map_in.wcs.to_header())
+    meta = cast(Dict[str, Any], copy.deepcopy(map_in.wcs.to_header()))
 
     crval1 = float(meta["CRVAL1"])
     crval2 = float(meta["CRVAL2"])
@@ -505,7 +517,7 @@ def normit(
 
 
 def get_closest_EUIFSI174_paths(
-    date_ref: np.datetime64,
+    date_ref: Union[np.datetime64, NDArray],
     interval: np.timedelta64,
     local_dir: Union[str, Path] = Path("/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
     verbose: int = 0,
@@ -564,7 +576,7 @@ def get_closest_EUIFSI174_paths(
         if not m:
             return None
         dt = datetime.datetime.strptime(m.group(0), "%Y%m%dT%H%M%S")
-        return _as_datetime64_ms(dt)
+        return cast(np.datetime64, _as_datetime64_ms(dt))
 
     _vprint(verbose, 2, f"Extracting timestamps from {len(all_paths)} files")
     paths_arr = np.array(all_paths, dtype=object)
@@ -590,7 +602,9 @@ def get_closest_EUIFSI174_paths(
 
 # Imager manipulation functions.
 def _find_all_days(
-    date_min: np.datetime64, date_max: np.datetime64, verbose: int = 0
+    date_min: Union[np.datetime64, NDArray],
+    date_max: Union[np.datetime64, NDArray],
+    verbose: int = 0,
 ) -> List[np.datetime64]:
     """
     Find all dates between date_min and date_max (inclusive).
@@ -612,13 +626,14 @@ def _find_all_days(
     _vprint(verbose, 2, f"Finding all days between {date_min} and {date_max}")
     # Add one day to include date_max in the range
     end_plus_one = date_max + np.timedelta64(1, "D")
-    date_list = pd.date_range(date_min, end_plus_one, freq="D").to_list()
+    # Cast to scalar np.datetime64 to satisfy pandas typing (we expect scalars here)
+    date_list = pd.date_range(cast(np.datetime64, date_min), cast(np.datetime64, end_plus_one), freq="D").to_list()
     _vprint(verbose, 2, f"Found {len(date_list)} days")
     return cast(List[np.datetime64], date_list)
 
 
 def _grab_EUI_data(
-    date: np.datetime64,
+    date: Union[np.datetime64, NDArray],
     local_dir: str | Path = Path("/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
     verbose: int = 0,
 ) -> List[Path]:
@@ -646,7 +661,7 @@ def _grab_EUI_data(
         Returns an empty list if the target folder does not exist.
     """
     # Convert to millisecond-precision datetime64 and then to Python datetime
-    date = _as_datetime64_ms(date)
+    date = cast(np.datetime64, _as_datetime64_ms(date))
     date_dt = date.astype(datetime.datetime)
     year = date_dt.year
     month = date_dt.month
@@ -668,8 +683,8 @@ def _grab_EUI_data(
 
 
 def get_EUI_paths(
-    date_min: np.datetime64,
-    date_max: np.datetime64,
+    date_min: Union[np.datetime64, NDArray],
+    date_max: Union[np.datetime64, NDArray],
     local_dir: str | Path = Path("/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
     verbose: int = 0,
 ) -> List[Path]:
@@ -727,7 +742,7 @@ def get_EUI_paths(
         if match:
             dt_str = match.group(0)
             dt_obj = datetime.datetime.strptime(dt_str, "%Y%m%dT%H%M%S")
-            return _as_datetime64_ms(dt_obj)
+            return cast(np.datetime64, _as_datetime64_ms(dt_obj))
         return None
 
     _vprint(verbose, 2, "Extracting timestamps from filenames")
@@ -834,7 +849,7 @@ def get_closest_EUIFSI304_paths(
         among those within [date_ref - interval, date_ref + interval].
         If no files lie within that window, returns an empty list.
     """
-    date_ref = _as_datetime64_ms(date_ref)  # Normalize to millisecond precision
+    date_ref = cast(np.datetime64, _as_datetime64_ms(date_ref))  # Normalize to millisecond precision
     half_int = np.asarray(
         interval, dtype="timedelta64[ms]"
     )  # Convert interval to millisecond precision
@@ -867,7 +882,7 @@ def get_closest_EUIFSI304_paths(
         if not m:
             return None
         dt = datetime.datetime.strptime(m.group(0), "%Y%m%dT%H%M%S")
-        return _as_datetime64_ms(dt)  # Normalize to millisecond precision
+        return cast(np.datetime64, _as_datetime64_ms(dt))  # Normalize to millisecond precision
 
     _vprint(verbose, 2, f"Extracting timestamps from {len(all_paths)} files")
     paths_arr = np.array(all_paths, dtype=object)
@@ -914,7 +929,7 @@ def _extract_map_time(
     entry: Union[GenericMap, str, Path], verbose: int = 0
 ) -> np.datetime64:
     if isinstance(entry, GenericMap):
-        t = _as_datetime64_ms(entry.date.isot)
+        t = cast(np.datetime64, _as_datetime64_ms(entry.date.isot))
         _vprint(verbose, 2, f"Map time (GenericMap): {t}")
         return t
     header = None
@@ -930,7 +945,7 @@ def _extract_map_time(
     date_key = hdr.get("DATE-AVG") or hdr.get("DATE-OBS") or hdr.get("DATE_BEG")
     if date_key is None:
         raise ValueError(f"No DATE-* keyword found in {entry}")
-    t = _as_datetime64_ms(date_key)
+    t = cast(np.datetime64, _as_datetime64_ms(date_key))
     _vprint(verbose, 2, f"Map time ({Path(entry).name}): {t}")
     return t
 
@@ -1013,7 +1028,7 @@ def _coerce_step_times(
     time_payload: Any | None,
     nx: int,
     default_time: np.datetime64,
-) -> NDArray[np.datetime64]:
+) -> NDArray:
     if time_payload is None:
         return np.full(nx, default_time, dtype="datetime64[ms]")
     try:
@@ -1069,7 +1084,7 @@ def build_synthetic_raster_from_maps(
     for entry in fsi_maps:
         fsi_entries.append(entry)
         fsi_times_list.append(_extract_map_time(entry, verbose=verbose))
-    fsi_times: NDArray[np.datetime64] = np.array(fsi_times_list)
+    fsi_times: NDArray = np.array(fsi_times_list)
 
     WCS3D = WCS(meta_to_header(spice_map.meta))
 
@@ -1077,10 +1092,10 @@ def build_synthetic_raster_from_maps(
     y = np.arange(ny)
     xx, yy = np.meshgrid(x, y)
     coords_spice, time_matrix = _pixel_world_with_optional_time(WCS3D, xx, yy)
-    step_times: NDArray[np.datetime64] = _coerce_step_times(
+    step_times: NDArray = _coerce_step_times(
         time_matrix,
         nx,
-        _as_datetime64_ms(spice_map.date.isot),
+        cast(np.datetime64, _as_datetime64_ms(spice_map.date.isot)),
     )
     _vprint(verbose, 2, "Computed step_times from WCS metadata")
 

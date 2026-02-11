@@ -24,7 +24,6 @@ from .utils import (  # pixels_to_arcsec,
     enlarge_map_by_padding,
     get_pixel_scale_quantity,
     reproject_map_to_reference,
-    
 )
 
 

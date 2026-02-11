@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import List, Set, Tuple
 
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.cm import ScalarMappable
@@ -123,8 +125,8 @@ class DebugPlotContext:
     """
 
     pdf_writer: PdfPages
-    fig: plt.Figure
-    ax: plt.Axes
+    fig: Figure
+    ax: Axes
     color_mappable: ScalarMappable
     debug_points: List[Tuple[int, int, float]]
     plotted_points: Set[Tuple[int, int]]

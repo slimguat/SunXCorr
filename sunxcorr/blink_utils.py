@@ -59,7 +59,7 @@ def make_blink_animation(
     for _ in range(n_cycles):
         frames.extend(["before", "after"])
 
-    def update(frame_name):
+    def update(frame_name: str) -> list:
         if frame_name == "before":
             im.set_data(before_data)
             ax.set_title(f"{title}\nBefore")
