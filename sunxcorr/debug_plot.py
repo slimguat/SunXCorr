@@ -19,12 +19,12 @@ from pathlib import Path
 from typing import List, Set, Tuple
 
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 import numpy as np
+from matplotlib.axes import Axes
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import LinearSegmentedColormap, Normalize
+from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
 from sunpy.map import GenericMap
 

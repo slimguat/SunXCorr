@@ -35,7 +35,7 @@ def make_blink_animation(
         Interval between frames in milliseconds
     n_cycles : int
         Number of blink cycles
-    
+
     Examples
     --------
     Example usage (display-only; not executed in tests)::

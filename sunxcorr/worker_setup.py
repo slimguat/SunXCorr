@@ -14,10 +14,24 @@ True
 
 from __future__ import annotations
 
+import os
+import time
 from multiprocessing import Manager, Process, Queue
 from typing import Any, List, Tuple
 
 from .optimization import _corr_worker_loop
+
+
+def _debug_log(msg: str) -> None:
+    try:
+        # Only write debug log to file when explicitly enabled to avoid
+        # unbounded log growth. Enable via environment variable:
+        # `export SUNXCORR_DEBUG_LOG=1`
+        if os.environ.get("SUNXCORR_DEBUG_LOG"):
+            with open("/tmp/sunxcorr_worker_debug.log", "a", encoding="utf-8") as fh:
+                fh.write(f"{time.time():.3f} {msg}\n")
+    except Exception:
+        pass
 
 
 def setup_persistent_workers(
@@ -42,7 +56,7 @@ def setup_persistent_workers(
         - result_queue: Queue for receiving results from workers
         - shared_payloads: Manager.dict() for storing ref/target images
         - worker_processes: List of Process objects
-    
+
     Examples
     --------
     >>> from sunxcorr.worker_setup import setup_persistent_workers
@@ -63,6 +77,7 @@ def setup_persistent_workers(
         )
         proc.daemon = True
         proc.start()
+        _debug_log(f"spawned worker pid={proc.pid}")
         worker_processes.append(proc)
 
     return task_queue, result_queue, shared_payloads, worker_processes

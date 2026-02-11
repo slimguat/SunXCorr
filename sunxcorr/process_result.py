@@ -89,4 +89,3 @@ class ProcessResult:
     iterations: list[Any] | int = field(
         default_factory=list
     )  # Per-iteration details or count
-

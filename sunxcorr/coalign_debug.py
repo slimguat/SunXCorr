@@ -19,10 +19,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, cast
 
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 import numpy as np
 from matplotlib.animation import FuncAnimation
+from matplotlib.axes import Axes
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import LinearSegmentedColormap, Normalize
@@ -33,7 +32,7 @@ from sunpy.map import GenericMap
 
 from sunxcorr.coalign_helpers import phase_label  # type: ignore[import]
 
-from .utils import get_coord_mat, normit
+from .utils import _vprint, get_coord_mat, normit
 
 
 # =============================================================
@@ -232,7 +231,7 @@ def blink_maps(
             display(controls)
 
         except ImportError:
-            print("ipywidgets not available; widgets controls disabled.")
+            _vprint(0, -1, "ipywidgets not available; widgets controls disabled.")
             controls = None
 
     return fig, ani, controls
@@ -339,6 +338,7 @@ class DebugPlotContext:
     point_radius_y_data: float = 0.5
     marker_patches: List[Rectangle] = field(default_factory=list)
     process_label: str = ""  # Process name and ID for titles
+    verbose: int = 0  # Verbosity level for debug prints
 
     def add_point(self, dx: int, dy: int, corr_val: float) -> None:
         """Record a correlation sample if it has not been plotted yet.
@@ -581,9 +581,9 @@ class DebugPlotContext:
         try:
             writer = PillowWriter(fps=1000 // interval)
             ani.save(str(gif_path), writer=writer, dpi=100)
-            print(f"Comparison animation saved: {gif_path}")
+            _vprint(self.verbose, 3, f"Comparison animation saved: {gif_path}")
         except Exception as e:
-            print(f"Warning: Could not save animation: {e}")
+            _vprint(self.verbose, -1, f"Warning: Could not save animation: {e}")
 
         plt.close(fig)
 

@@ -17,8 +17,9 @@ import copy
 import datetime
 import re
 from pathlib import Path
+from typing import Any
+from typing import Any as _Any
 from typing import (
-    Any,
     Dict,
     Iterable,
     List,
@@ -47,7 +48,6 @@ from astropy.visualization import (
 )
 from astropy.wcs import WCS
 from matplotlib.colors import Normalize
-from typing import Any as _Any
 
 # Use a concrete NDArray[Any] alias at runtime and for type checking.
 # Importing and subscripting numpy.typing.NDArray is safe here and avoids
@@ -634,7 +634,9 @@ def _find_all_days(
     # Add one day to include date_max in the range
     end_plus_one = date_max + np.timedelta64(1, "D")
     # Cast to scalar np.datetime64 to satisfy pandas typing (we expect scalars here)
-    date_list = pd.date_range(cast(np.datetime64, date_min), cast(np.datetime64, end_plus_one), freq="D").to_list()
+    date_list = pd.date_range(
+        cast(np.datetime64, date_min), cast(np.datetime64, end_plus_one), freq="D"
+    ).to_list()
     _vprint(verbose, 2, f"Found {len(date_list)} days")
     return cast(List[np.datetime64], date_list)
 
@@ -856,7 +858,9 @@ def get_closest_EUIFSI304_paths(
         among those within [date_ref - interval, date_ref + interval].
         If no files lie within that window, returns an empty list.
     """
-    date_ref = cast(np.datetime64, _as_datetime64_ms(date_ref))  # Normalize to millisecond precision
+    date_ref = cast(
+        np.datetime64, _as_datetime64_ms(date_ref)
+    )  # Normalize to millisecond precision
     half_int = np.asarray(
         interval, dtype="timedelta64[ms]"
     )  # Convert interval to millisecond precision
@@ -889,7 +893,9 @@ def get_closest_EUIFSI304_paths(
         if not m:
             return None
         dt = datetime.datetime.strptime(m.group(0), "%Y%m%dT%H%M%S")
-        return cast(np.datetime64, _as_datetime64_ms(dt))  # Normalize to millisecond precision
+        return cast(
+            np.datetime64, _as_datetime64_ms(dt)
+        )  # Normalize to millisecond precision
 
     _vprint(verbose, 2, f"Extracting timestamps from {len(all_paths)} files")
     paths_arr = np.array(all_paths, dtype=object)

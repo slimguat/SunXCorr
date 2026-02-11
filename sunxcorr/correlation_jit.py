@@ -32,7 +32,7 @@ def normalized_corr_nan_safe(img1: np.ndarray, img2: np.ndarray) -> float:
     float
         Pearson-like normalized correlation in [-1, 1]. Returns 0.0 when
         no overlapping finite pixels or when denominator is zero.
-    
+
         Examples
         --------
         >>> import numpy as np

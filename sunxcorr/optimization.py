@@ -26,6 +26,7 @@ from multiprocessing import Queue  # , Manager, Process
 from typing import Any, Dict, List, Optional, Tuple  # , Iterable
 
 import numpy as np
+import os
 
 from .coalign_helpers import (  # clamp_point_nd,; point_in_bounds_nd,; compute_gradient_step_nd,
     build_shift_structures,
@@ -92,6 +93,23 @@ def _corr_worker_loop(
     center: Tuple[float, float] | None = None
     ctx_jit = None
 
+    import os
+    import time as _time
+    import queue as _queue
+
+    def _debug_log(msg: str) -> None:
+        try:
+            # Only write debug log to file when explicitly enabled to avoid
+            # unbounded log growth. Enable via environment variable:
+            # `export SUNXCORR_DEBUG_LOG=1`
+            if os.environ.get("SUNXCORR_DEBUG_LOG"):
+                with open(
+                    "/tmp/sunxcorr_worker_debug.log", "a", encoding="utf-8"
+                ) as fh:
+                    fh.write(f"{_time.time():.3f} [pid={os.getpid()}] {msg}\n")
+        except Exception:
+            pass
+
     def _load_payload(payload_id: str) -> bool:
         nonlocal current_payload_id, ref_img, target_img, center, ctx_jit
         if (
@@ -153,7 +171,14 @@ def _corr_worker_loop(
             )
             batch_results.append((dx, dy, corr_val))
 
-        result_queue.put((job_id, batch_results))
+        try:
+            result_queue.put((job_id, batch_results))
+        except Exception:
+            # best-effort: avoid leaving caller blocked if a worker crashes
+            try:
+                result_queue.put_nowait((job_id, batch_results))
+            except Exception:
+                _debug_log(f"dropping result for job {job_id}")
 
 
 def optimize_shift_and_scale(
@@ -321,6 +346,20 @@ def optimize_shift_and_scale(
                     sys = [1.0] * len(chunk)
                     payload_ids = [payload_id] * len(chunk)
 
+                    # Conditional logging of submission (opt-in via env var)
+                    try:
+                        if os.environ.get("SUNXCORR_DEBUG_LOG"):
+                            import time as _time
+
+                            with open(
+                                "/tmp/sunxcorr_worker_debug.log", "a", encoding="utf-8"
+                            ) as fh:
+                                fh.write(
+                                    f"{_time.time():.3f} submit job_id={job_id} size={len(chunk)}\n"
+                                )
+                    except Exception:
+                        pass
+
                     task_queue.put((job_id, payload_ids, dxs, dys, sxs, sys))
                     pending_jobs.add(job_id)
                     job_map[job_id] = chunk
@@ -328,6 +367,16 @@ def optimize_shift_and_scale(
                 # Collect results from workers
                 while pending_jobs:
                     job_id, batch = result_queue.get()
+                    try:
+                        if os.environ.get("SUNXCORR_DEBUG_LOG"):
+                            import time as _time
+
+                            with open(
+                                "/tmp/sunxcorr_worker_debug.log", "a", encoding="utf-8"
+                            ) as fh:
+                                fh.write(f"{_time.time():.3f} got result job_id={job_id} len={len(batch)}\n")
+                    except Exception:
+                        pass
                     pending_jobs.discard(job_id)
                     chunk_points = job_map.pop(job_id, [])
                     for (dx, dy, corr_val), (point_dx, point_dy) in zip(

@@ -28,6 +28,8 @@ class Orchestrator(CoalignmentNode):
         self.node_id = "orchestrator"
         self.node_name = "Orchestrator"
         self._owns_workers = False
+        # honor requested worker count so root creates correct # of workers
+        self.n_workers = n_workers
 
     def _execute_own_process(self, *args, **kwargs) -> None:
         """
