@@ -261,23 +261,23 @@ class CorrContextJIT:
 def build_corr_context_jit(
     ref_img: np.ndarray, target_img: np.ndarray
 ) -> CorrContextJIT:
+    """
+    Build a `CorrContextJIT` object holding precomputed masks and counts.
+
+    This prepares the small amount of per-pair state used by the JIT
+    correlation routine so repeated calls (different parameters) avoid
+    recomputing the valid-pixel masks and counts.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> ref = np.array([[1.0, np.nan], [2.0, 3.0]])
+    >>> tgt = np.array([[1.0, 4.0], [2.0, np.nan]])
+    >>> ctx = build_corr_context_jit(ref, tgt)
+    >>> ctx.original_valid_count
+    2
+    """
     ref = np.asarray(ref_img, dtype=np.float64)
-     """
-     Build a `CorrContextJIT` object holding precomputed masks and counts.
-
-     This prepares the small amount of per-pair state used by the JIT
-     correlation routine so repeated calls (different parameters) avoid
-     recomputing the valid-pixel masks and counts.
-
-     Examples
-     --------
-     >>> import numpy as np
-     >>> ref = np.array([[1.0, np.nan], [2.0, 3.0]])
-     >>> tgt = np.array([[1.0, 4.0], [2.0, np.nan]])
-     >>> ctx = build_corr_context_jit(ref, tgt)
-     >>> ctx.original_valid_count
-     2
-     """
 
     tgt = np.asarray(target_img, dtype=np.float64)
     assert ref.shape == tgt.shape, "ref and target must have the same shape for context"
