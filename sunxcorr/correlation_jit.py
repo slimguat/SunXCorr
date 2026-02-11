@@ -32,6 +32,17 @@ def normalized_corr_nan_safe(img1: np.ndarray, img2: np.ndarray) -> float:
     float
         Pearson-like normalized correlation in [-1, 1]. Returns 0.0 when
         no overlapping finite pixels or when denominator is zero.
+    
+        Examples
+        --------
+        >>> import numpy as np
+        >>> a = np.array([[1.0, 2.0], [np.nan, 4.0]])
+        >>> b = np.array([[1.0, 2.0], [3.0, 4.0]])
+        >>> round(normalized_corr_nan_safe(a, b), 6)
+        1.0
+        >>> c = np.array([[np.nan, np.nan], [np.nan, np.nan]])
+        >>> normalized_corr_nan_safe(a, c)
+        0.0
     """
     img1 = np.asarray(img1, dtype=np.float64)
     img2 = np.asarray(img2, dtype=np.float64)
@@ -90,6 +101,19 @@ def squeeze_to_ref_grid(
     -------
     ndarray
         Resampled image aligned to `ref_shape`.
+
+        Examples
+        --------
+        Simple downscale by factor 2 on each axis (squeeze_x=0.5 means image is
+        shrunk in x then mapped onto ref grid):
+
+        >>> import numpy as np
+        >>> img = np.arange(16, dtype=float).reshape(4, 4)
+        >>> out = squeeze_to_ref_grid(img, ref_shape=(4, 4), squeeze_x=0.5, squeeze_y=0.5)
+        >>> out.shape
+        (4, 4)
+        >>> round(float(out[0,0]), 6)  # doctest: +ELLIPSIS
+        -0.0
     """
     target_img = np.asarray(target_img, dtype=np.float64)
     ny, nx = target_img.shape
@@ -124,6 +148,15 @@ def shift_image(img: np.ndarray, dx: int, dy: int) -> np.ndarray:
     """
     Shift image by (dx, dy) with zero padding (no wrap).
     Positive dx -> right, positive dy -> down.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> img = np.arange(9.0).reshape(3, 3)
+        >>> shift_image(img, 1, 0)
+        array([[nan,  0.,  1.],
+               [nan,  3.,  4.],
+               [nan,  6.,  7.]])
     """
     ny, nx = img.shape
     out = np.full_like(img, np.nan)
@@ -164,6 +197,14 @@ def correlation_for_params(
     1) squeeze target onto ref grid,
     2) shift it,
     3) compute normalized correlation with ref_img.
+
+     Examples
+     --------
+     >>> import numpy as np
+     >>> ref = np.ones((4,4), dtype=float)
+     >>> tgt = np.ones((4,4), dtype=float)
+     >>> correlation_for_params(ref, tgt, dx=0, dy=0, squeeze_x=1.0, squeeze_y=1.0)
+     1.0
     """
     # 1) squeeze onto reference grid
     if squeeze_x == 1.0 and squeeze_y == 1.0:
@@ -221,6 +262,23 @@ def build_corr_context_jit(
     ref_img: np.ndarray, target_img: np.ndarray
 ) -> CorrContextJIT:
     ref = np.asarray(ref_img, dtype=np.float64)
+     """
+     Build a `CorrContextJIT` object holding precomputed masks and counts.
+
+     This prepares the small amount of per-pair state used by the JIT
+     correlation routine so repeated calls (different parameters) avoid
+     recomputing the valid-pixel masks and counts.
+
+     Examples
+     --------
+     >>> import numpy as np
+     >>> ref = np.array([[1.0, np.nan], [2.0, 3.0]])
+     >>> tgt = np.array([[1.0, 4.0], [2.0, np.nan]])
+     >>> ctx = build_corr_context_jit(ref, tgt)
+     >>> ctx.original_valid_count
+     2
+     """
+
     tgt = np.asarray(target_img, dtype=np.float64)
     assert ref.shape == tgt.shape, "ref and target must have the same shape for context"
     valid_ref = np.isfinite(ref)
