@@ -10,7 +10,7 @@ Clone the repository and install with pip:
 pip install .
 ```
 
-````markdown
+
 # SunXCorr
 
 Fast solar image cross-correlation and alignment library.
@@ -24,14 +24,14 @@ This README provides developer-oriented instructions to run the full test-suite,
 Clone the repository and install with pip inside a virtual environment (recommended):
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/slimguat/SunXCorr.git
 cd Cross_correlation
 python -m venv env
 source env/bin/activate
 pip install -e .
 ```
 
-If you have the project-specific environment layout, you can use the provided env: `/home/smzergua/workshop/2026/envs/SAFFRON_ENV` and call the interpreter directly.
+Alternatively, ensure you run tests and commands using a consistent Python environment (virtualenv, conda env, or CI-provided interpreter) with the required dependencies installed.
 
 ## Requirements
 - numpy
@@ -44,8 +44,8 @@ If you have the project-specific environment layout, you can use the provided en
 Install the developer tools used in this repo (formatters and type checkers):
 
 ```bash
-/home/smzergua/workshop/2026/envs/SAFFRON_ENV/bin/python -m pip install --upgrade pip
-/home/smzergua/workshop/2026/envs/SAFFRON_ENV/bin/python -m pip install black isort mypy pytest
+python -m pip install --upgrade pip
+python -m pip install black isort mypy pytest
 ```
 
 ---
@@ -58,13 +58,13 @@ Run the full test-suite (quiet):
 
 ```bash
 cd Cross_correlation
-/home/smzergua/workshop/2026/envs/SAFFRON_ENV/bin/python -m pytest -q
+python -m pytest -q
 ```
 
 Run a single test file or test function to speed up iteration:
 
 ```bash
-/home/smzergua/workshop/2026/envs/SAFFRON_ENV/bin/python -m pytest tests/test_synthetic_raster_process.py::test_synthetic_raster_process_short_sequence -q
+python -m pytest tests/test_synthetic_raster_process.py::test_synthetic_raster_process_short_sequence -q
 ```
 
 Notes:
@@ -77,10 +77,10 @@ Notes:
 
 This project includes utilities used by the test-suite to generate synthetic frames and validate correlation/coalignment behavior. Use the following recipe to run a minimal single synthetic example:
 
-1. Activate the environment and change to the project directory:
+1. Activate your chosen Python environment and change to the project directory:
 
 ```bash
-source /home/smzergua/workshop/2026/envs/SAFFRON_ENV/bin/activate
+source path/to/venv/bin/activate
 cd Cross_correlation
 ```
 
@@ -141,6 +141,6 @@ rm -rf .pytest_cache .mypy_cache
 
 If you want either of those, tell me which and I'll add them.
 
-Author: Slimane MZERGUAT
+<!-- Author information intentionally omitted for professional README -->
 
 ````
