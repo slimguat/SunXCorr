@@ -1,0 +1,13 @@
+[flake8]
+max-line-length = 120
+exclude =
+    envs,
+    envs/*,
+    data_storage,
+    data_storage/*,
+    _delete,
+    .venv,
+    build,
+    dist,
+    .git,
+    __pycache__

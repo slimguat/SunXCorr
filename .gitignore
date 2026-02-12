@@ -36,6 +36,7 @@ htmlcov/
 # Local data and large artifacts
 tmp/
 data_storage/
+Cross_correlation/data_storage/
 
 # OS files
 .DS_Store
