@@ -39,3 +39,6 @@ data_storage/
 
 # OS files
 .DS_Store
+ 
+# Built docs (generated)
+docs/
