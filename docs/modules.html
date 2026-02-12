@@ -21,7 +21,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="sunxcorr" href="_autosummary/sunxcorr.html" />
+    <link rel="next" title="sunxcorr.single_map_process" href="_autosummary/sunxcorr.single_map_process.html" />
     <link rel="prev" title="Welcome to SunXCorr’s documentation" href="index.html" /> 
 </head>
 
@@ -46,15 +46,54 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.html">sunxcorr</a></li>
-<li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.optimization.html">sunxcorr.optimization</a></li>
-<li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.orchestrator.html">sunxcorr.orchestrator</a></li>
-<li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.correlation_jit.html">sunxcorr.correlation_jit</a></li>
-<li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.worker_setup.html">sunxcorr.worker_setup</a></li>
-<li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.utils.html">sunxcorr.utils</a></li>
-<li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.process_result.html">sunxcorr.process_result</a></li>
 <li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.single_map_process.html">sunxcorr.single_map_process</a></li>
 <li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.synthetic_raster_process.html">sunxcorr.synthetic_raster_process</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.orchestrator.html">sunxcorr.orchestrator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.process_result.html">sunxcorr.process_result</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.correlation_jit.html">sunxcorr.correlation_jit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.optimization.html">sunxcorr.optimization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.worker_setup.html">sunxcorr.worker_setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.utils.html">sunxcorr.utils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/sunxcorr.html">sunxcorr</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-sunxcorr.base_node">sunxcorr.base_node</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#public-api">Public API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.node_id"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.node_id</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.node_name"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.node_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.parent"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.parent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.children"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.children</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.base_target_map"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.base_target_map</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.current_working_map"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.current_working_map</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.result"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.result</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.worker_pool"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.worker_pool</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.debug_writer"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.debug_writer</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.verbose"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.verbose</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.output_directory"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.output_directory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.is_executed"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.is_executed</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.execute"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.execute()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.add_child"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.add_child()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.is_root"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.is_root()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.is_ancestor_of"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.is_ancestor_of()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.get_base_target_map"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.get_base_target_map()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.get_working_map"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.get_working_map()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.get_reference_map"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.get_reference_map()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.get_reference_sequence"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.get_reference_sequence()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.get_worker_pool"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.get_worker_pool()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.get_task_queue"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.get_task_queue()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.get_result_queue"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.get_result_queue()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.get_shared_payloads"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.get_shared_payloads()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.get_debug_writer"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.get_debug_writer()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.get_verbose_level"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.get_verbose_level()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.get_output_directory"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.get_output_directory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.get_final_result"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.get_final_result()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.get_all_results"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.get_all_results()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.cleanup_workers"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.cleanup_workers()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.cleanup_debug"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.cleanup_debug()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode.cleanup"><code class="docutils literal notranslate"><span class="pre">CoalignmentNode.cleanup()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -87,17 +126,23 @@
 <h1>API Reference<a class="headerlink" href="#api-reference" title="Permalink to this heading"></a></h1>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/sunxcorr.html#module-sunxcorr" title="sunxcorr"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr</span></code></a></p></td>
-<td><p>SunXCorr package.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/sunxcorr.single_map_process.html#module-sunxcorr.single_map_process" title="sunxcorr.single_map_process"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr.single_map_process</span></code></a></p></td>
+<td><p>Single-map cross-correlation process (shift-only optimization).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/sunxcorr.optimization.html#module-sunxcorr.optimization" title="sunxcorr.optimization"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr.optimization</span></code></a></p></td>
-<td><p>Optimization functions for coalignment (shift and/or scale search).</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/sunxcorr.synthetic_raster_process.html#module-sunxcorr.synthetic_raster_process" title="sunxcorr.synthetic_raster_process"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr.synthetic_raster_process</span></code></a></p></td>
+<td><p>Synthetic raster generation and optimization process.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/sunxcorr.orchestrator.html#module-sunxcorr.orchestrator" title="sunxcorr.orchestrator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr.orchestrator</span></code></a></p></td>
 <td><p>Orchestrator node for managing coalignment processes.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/sunxcorr.correlation_jit.html#module-sunxcorr.correlation_jit" title="sunxcorr.correlation_jit"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr.correlation_jit</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/sunxcorr.process_result.html#module-sunxcorr.process_result" title="sunxcorr.process_result"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr.process_result</span></code></a></p></td>
+<td><p>Data structures for coalignment process results.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/sunxcorr.correlation_jit.html#module-sunxcorr.correlation_jit" title="sunxcorr.correlation_jit"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr.correlation_jit</span></code></a></p></td>
 <td><p>High-performance correlation helpers (Numba/JIT).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/sunxcorr.optimization.html#module-sunxcorr.optimization" title="sunxcorr.optimization"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr.optimization</span></code></a></p></td>
+<td><p>Optimization functions for coalignment (shift and/or scale search).</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/sunxcorr.worker_setup.html#module-sunxcorr.worker_setup" title="sunxcorr.worker_setup"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr.worker_setup</span></code></a></p></td>
 <td><p>Persistent worker helpers used by SunXCorr.</p></td>
@@ -105,17 +150,345 @@
 <tr class="row-even"><td><p><a class="reference internal" href="_autosummary/sunxcorr.utils.html#module-sunxcorr.utils" title="sunxcorr.utils"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr.utils</span></code></a></p></td>
 <td><p>Utility functions for coalignment processes.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/sunxcorr.process_result.html#module-sunxcorr.process_result" title="sunxcorr.process_result"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr.process_result</span></code></a></p></td>
-<td><p>Data structures for coalignment process results.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/sunxcorr.single_map_process.html#module-sunxcorr.single_map_process" title="sunxcorr.single_map_process"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr.single_map_process</span></code></a></p></td>
-<td><p>Single-map cross-correlation process (shift-only optimization).</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/sunxcorr.synthetic_raster_process.html#module-sunxcorr.synthetic_raster_process" title="sunxcorr.synthetic_raster_process"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr.synthetic_raster_process</span></code></a></p></td>
-<td><p>Synthetic raster generation and optimization process.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/sunxcorr.html#module-sunxcorr" title="sunxcorr"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sunxcorr</span></code></a></p></td>
+<td><p>SunXCorr package.</p></td>
 </tr>
 </tbody>
 </table>
+<section id="module-sunxcorr.base_node">
+<span id="sunxcorr-base-node"></span><h2>sunxcorr.base_node<a class="headerlink" href="#module-sunxcorr.base_node" title="Permalink to this heading"></a></h2>
+<p>Base node functionality for the SunXCorr coalignment tree.</p>
+<p>This module defines the abstract <cite>CoalignmentNode</cite> base class used to build
+tree-structured coalignment workflows. Nodes may be composite (orchestrator)
+or leaf (processing step). The class provides resource lookup helpers (worker
+pool, queues), tree management helpers, and result collection utilities.</p>
+<p>Typical usage:</p>
+<blockquote>
+<div><p>root = Orchestrator(n_workers=4)
+process = SomeLeafProcess()
+root.add_child(process)
+root.execute()</p>
+</div></blockquote>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">sunxcorr.base_node</span> <span class="kn">import</span> <span class="n">CoalignmentNode</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># The base class is abstract; constructing a subclass or using</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># `Orchestrator` / concrete processes is the typical workflow.</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">isinstance</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+<span class="go">True</span>
+</pre></div>
+</div>
+<section id="public-api">
+<h3>Public API<a class="headerlink" href="#public-api" title="Permalink to this heading"></a></h3>
+<ul class="simple">
+<li><p><cite>CoalignmentNode</cite>: core base class.</p></li>
+</ul>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sunxcorr.base_node.</span></span><span class="sig-name descname"><span class="pre">CoalignmentNode</span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<p>Base class for coalignment process tree.</p>
+<p>Can be either:
+- Composite (orchestrator with children)
+- Leaf (process with execution logic)</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.node_id">
+<span class="sig-name descname"><span class="pre">node_id</span></span><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.node_id" title="Permalink to this definition"></a></dt>
+<dd><p>Unique identifier</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.node_name">
+<span class="sig-name descname"><span class="pre">node_name</span></span><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.node_name" title="Permalink to this definition"></a></dt>
+<dd><p>Human-readable name</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.parent">
+<span class="sig-name descname"><span class="pre">parent</span></span><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.parent" title="Permalink to this definition"></a></dt>
+<dd><p>Parent node</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode" title="sunxcorr.base_node.CoalignmentNode">CoalignmentNode</a> | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.children">
+<span class="sig-name descname"><span class="pre">children</span></span><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.children" title="Permalink to this definition"></a></dt>
+<dd><p>Child nodes (empty for leaf processes)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[<a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode" title="sunxcorr.base_node.CoalignmentNode">CoalignmentNode</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.base_target_map">
+<span class="sig-name descname"><span class="pre">base_target_map</span></span><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.base_target_map" title="Permalink to this definition"></a></dt>
+<dd><p>Original uncorrected target map</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>GenericMap | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.current_working_map">
+<span class="sig-name descname"><span class="pre">current_working_map</span></span><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.current_working_map" title="Permalink to this definition"></a></dt>
+<dd><p>Latest corrected map (maintained by root)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>GenericMap | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.result">
+<span class="sig-name descname"><span class="pre">result</span></span><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.result" title="Permalink to this definition"></a></dt>
+<dd><p>Result from this node’s execution</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ProcessResult | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.worker_pool">
+<span class="sig-name descname"><span class="pre">worker_pool</span></span><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.worker_pool" title="Permalink to this definition"></a></dt>
+<dd><p>Shared worker pool for parallel processing</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Any | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.debug_writer">
+<span class="sig-name descname"><span class="pre">debug_writer</span></span><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.debug_writer" title="Permalink to this definition"></a></dt>
+<dd><p>Shared debug PDF writer</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Any | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.verbose">
+<span class="sig-name descname"><span class="pre">verbose</span></span><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.verbose" title="Permalink to this definition"></a></dt>
+<dd><p>Verbosity level</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.output_directory">
+<span class="sig-name descname"><span class="pre">output_directory</span></span><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.output_directory" title="Permalink to this definition"></a></dt>
+<dd><p>Output directory for artifacts</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Path | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.is_executed">
+<span class="sig-name descname"><span class="pre">is_executed</span></span><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.is_executed" title="Permalink to this definition"></a></dt>
+<dd><p>Whether this node has been executed</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.execute">
+<span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.execute" title="Permalink to this definition"></a></dt>
+<dd><p>Execute this node and all descendants.
+Recursively processes tree structure.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.add_child">
+<span class="sig-name descname"><span class="pre">add_child</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">child</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode" title="sunxcorr.base_node.CoalignmentNode"><span class="pre">CoalignmentNode</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.add_child"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.add_child" title="Permalink to this definition"></a></dt>
+<dd><p>Add a child process to this node.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.is_root">
+<span class="sig-name descname"><span class="pre">is_root</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.is_root"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.is_root" title="Permalink to this definition"></a></dt>
+<dd><p>Check if this is the root node.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.is_ancestor_of">
+<span class="sig-name descname"><span class="pre">is_ancestor_of</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#sunxcorr.base_node.CoalignmentNode" title="sunxcorr.base_node.CoalignmentNode"><span class="pre">CoalignmentNode</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.is_ancestor_of"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.is_ancestor_of" title="Permalink to this definition"></a></dt>
+<dd><p>Check if this node is an ancestor of another node.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.get_base_target_map">
+<span class="sig-name descname"><span class="pre">get_base_target_map</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">GenericMap</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.get_base_target_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.get_base_target_map" title="Permalink to this definition"></a></dt>
+<dd><p>Get original target map (searches up tree).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.get_working_map">
+<span class="sig-name descname"><span class="pre">get_working_map</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">GenericMap</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.get_working_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.get_working_map" title="Permalink to this definition"></a></dt>
+<dd><p>Get current working map (latest correction).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.get_reference_map">
+<span class="sig-name descname"><span class="pre">get_reference_map</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">GenericMap</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.get_reference_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.get_reference_map" title="Permalink to this definition"></a></dt>
+<dd><p>Get reference map (searches up tree, may not exist on this node).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.get_reference_sequence">
+<span class="sig-name descname"><span class="pre">get_reference_sequence</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">GenericMap</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.get_reference_sequence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.get_reference_sequence" title="Permalink to this definition"></a></dt>
+<dd><p>Get reference sequence (searches up tree, may not exist on this node).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.get_worker_pool">
+<span class="sig-name descname"><span class="pre">get_worker_pool</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.get_worker_pool"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.get_worker_pool" title="Permalink to this definition"></a></dt>
+<dd><p>Get worker pool (searches up tree or creates at root).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Opaque pool-like object providing <cite>.close()</cite> and <cite>.join()</cite> methods.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Any</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.get_task_queue">
+<span class="sig-name descname"><span class="pre">get_task_queue</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Queue</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.get_task_queue"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.get_task_queue" title="Permalink to this definition"></a></dt>
+<dd><p>Get task queue for persistent workers (searches up tree).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Queue used to submit tasks to persistent worker processes.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>multiprocessing.Queue</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.get_result_queue">
+<span class="sig-name descname"><span class="pre">get_result_queue</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Queue</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.get_result_queue"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.get_result_queue" title="Permalink to this definition"></a></dt>
+<dd><p>Get result queue for persistent workers (searches up tree).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Queue used by workers to post back results.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>multiprocessing.Queue</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.get_shared_payloads">
+<span class="sig-name descname"><span class="pre">get_shared_payloads</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.get_shared_payloads"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.get_shared_payloads" title="Permalink to this definition"></a></dt>
+<dd><p>Get shared payloads dict for persistent workers (searches up tree).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Manager-backed dictionary used to share large payloads (images)
+with persistent workers.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.get_debug_writer">
+<span class="sig-name descname"><span class="pre">get_debug_writer</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.get_debug_writer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.get_debug_writer" title="Permalink to this definition"></a></dt>
+<dd><p>Get debug PDF writer (searches up tree).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Opaque object used to write debug artifacts (e.g. matplotlib
+PdfPages) or <cite>None</cite> when not configured.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Any or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.get_verbose_level">
+<span class="sig-name descname"><span class="pre">get_verbose_level</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.get_verbose_level"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.get_verbose_level" title="Permalink to this definition"></a></dt>
+<dd><p>Get verbosity level (searches up tree).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.get_output_directory">
+<span class="sig-name descname"><span class="pre">get_output_directory</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Path</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.get_output_directory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.get_output_directory" title="Permalink to this definition"></a></dt>
+<dd><p>Get output directory (searches up tree).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.get_final_result">
+<span class="sig-name descname"><span class="pre">get_final_result</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ProcessResult</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.get_final_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.get_final_result" title="Permalink to this definition"></a></dt>
+<dd><p>Get final result (last executed leaf process).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.get_all_results">
+<span class="sig-name descname"><span class="pre">get_all_results</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">ProcessResult</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.get_all_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.get_all_results" title="Permalink to this definition"></a></dt>
+<dd><p>Recursively collect all results from tree.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.cleanup_workers">
+<span class="sig-name descname"><span class="pre">cleanup_workers</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.cleanup_workers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.cleanup_workers" title="Permalink to this definition"></a></dt>
+<dd><p>Close and join worker pool and persistent workers.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.cleanup_debug">
+<span class="sig-name descname"><span class="pre">cleanup_debug</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.cleanup_debug"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.cleanup_debug" title="Permalink to this definition"></a></dt>
+<dd><p>Close debug writer if active.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sunxcorr.base_node.CoalignmentNode.cleanup">
+<span class="sig-name descname"><span class="pre">cleanup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/sunxcorr/base_node.html#CoalignmentNode.cleanup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sunxcorr.base_node.CoalignmentNode.cleanup" title="Permalink to this definition"></a></dt>
+<dd><p>Clean up all resources (workers and debug output).</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
 </section>
 
 
@@ -123,7 +496,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="index.html" class="btn btn-neutral float-left" title="Welcome to SunXCorr’s documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="_autosummary/sunxcorr.html" class="btn btn-neutral float-right" title="sunxcorr" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="_autosummary/sunxcorr.single_map_process.html" class="btn btn-neutral float-right" title="sunxcorr.single_map_process" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
