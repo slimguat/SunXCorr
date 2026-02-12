@@ -1,0 +1,202 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sunxcorr.utils &mdash; SunXCorr  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css" />
+
+  
+      <script src="../_static/jquery.js"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+      <script src="../_static/doctools.js"></script>
+      <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="sunxcorr.process_result" href="sunxcorr.process_result.html" />
+    <link rel="prev" title="sunxcorr.worker_setup" href="sunxcorr.worker_setup.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SunXCorr
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="sunxcorr.html">sunxcorr</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sunxcorr.optimization.html">sunxcorr.optimization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sunxcorr.orchestrator.html">sunxcorr.orchestrator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sunxcorr.correlation_jit.html">sunxcorr.correlation_jit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sunxcorr.worker_setup.html">sunxcorr.worker_setup</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">sunxcorr.utils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sunxcorr.process_result.html">sunxcorr.process_result</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sunxcorr.single_map_process.html">sunxcorr.single_map_process</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sunxcorr.synthetic_raster_process.html">sunxcorr.synthetic_raster_process</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SunXCorr</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../modules.html">API Reference</a></li>
+      <li class="breadcrumb-item active">sunxcorr.utils</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_autosummary/sunxcorr.utils.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-sunxcorr.utils">
+<span id="sunxcorr-utils"></span><h1>sunxcorr.utils<a class="headerlink" href="#module-sunxcorr.utils" title="Permalink to this heading"></a></h1>
+<p>Utility functions for coalignment processes.</p>
+<p>This module is large and legacy; the above per-file mypy relaxations are
+temporary to allow incremental typing fixes.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Safe import-only example (do not run heavy I/O in doctests)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">sunxcorr</span><span class="w"> </span><span class="kn">import</span> <span class="n">utils</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">hasattr</span><span class="p">(</span><span class="n">utils</span><span class="p">,</span> <span class="s1">&#39;_as_datetime64_ms&#39;</span><span class="p">)</span>
+<span class="go">True</span>
+</pre></div>
+</div>
+<p class="rubric">Functions</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_shift_and_scale_to_map</span></code>(map_obj, ...)</p></td>
+<td><p>Apply shift and scale to map by modifying WCS.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_shift_to_map</span></code>(map_obj, shift_x_arcsec, ...)</p></td>
+<td><p>Apply shift to map by modifying WCS CRVAL.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">arcsec_to_pixels</span></code>(value_arcsec, map_obj)</p></td>
+<td><p>Convert angular distance to pixels for a given map.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">bin_map</span></code>(map_obj, bin_factor)</p></td>
+<td><p>Bin a map by averaging pixels.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_corrected_wcs_meta_scale_shift</span></code>(map_in)</p></td>
+<td><p>Construct corrected WCS metadata encoding a pixel-domain affine registration (anisotropic scaling about CRPIX followed by a translation), without resampling.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_synthetic_raster_from_maps</span></code>(spice_map, ...)</p></td>
+<td><p>Sample FSI maps (or FITS paths) onto the spatial grid of a SPICE map and return a synthetic raster as a GenericMap without saving to disk.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">clamp_point</span></code>(point, shift_x, shift_y)</p></td>
+<td><p>Clamp a 2D point to lie within rectangular search bounds.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">enlarge_map_by_padding</span></code>(smap, pad_x, pad_y[, ...])</p></td>
+<td><p>Pad or crop a SunPy map while maintaining consistent WCS metadata.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_EUI_paths</span></code>(date_min, date_max[, ...])</p></td>
+<td><p>Collect all EUI FITS file paths between date_min and date_max (inclusive).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_closest_EUIFSI174_paths</span></code>(date_ref, interval)</p></td>
+<td><p>Find the EUI FITS files whose timestamps are closest to a reference date, within a specified tolerance interval.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_closest_EUIFSI304_paths</span></code>(date_ref, interval)</p></td>
+<td><p>Find the EUI FITS files (FSI 304) whose timestamps are closest to a reference date, within a specified tolerance interval.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_coord_mat</span></code>(map[, as_skycoord])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_pixel_scale_quantity</span></code>(map_obj)</p></td>
+<td><p>Get pixel scale from map in angular units.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">interpol2d</span></code>(image, x, y, fill, order[, dst])</p></td>
+<td><p><p>&quot;</p>
+</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_corrected_wcs_map</span></code>(map_in, best_params)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">meta_to_header</span></code>(meta)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">no_nan_uniform_filter</span></code>(data[, remove_percentile])</p></td>
+<td><p>Apply uniform filter while masking outliers and preserving NaN regions.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">normit</span></code>([data, interval, stretch, vmin, ...])</p></td>
+<td><p>Normalize the data using the specified interval, stretch, vmin, and vmax.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">pixels_to_arcsec</span></code>(value_pixels, map_obj)</p></td>
+<td><p>Convert pixels to angular distance for a given map.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reproject_map_to_reference</span></code>(ref_map, input_map)</p></td>
+<td><p>Reproject input_map onto the WCS &amp; pixel grid of ref_map.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">split_eui_paths_by_mode</span></code>(list_paths[, verbose])</p></td>
+<td><p>Split EUI file paths into groups based on the instrument mode encoded in the filename.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">unbin_map_lattice</span></code>(binned_map, bin_factor, ...)</p></td>
+<td><p>Inverse of <cite>bin_map</cite> in the sense of restoring the original grid (shape + WCS), without inventing pixel values.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="sunxcorr.worker_setup.html" class="btn btn-neutral float-left" title="sunxcorr.worker_setup" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="sunxcorr.process_result.html" class="btn btn-neutral float-right" title="sunxcorr.process_result" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright .</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
