@@ -6,7 +6,7 @@ build-backend = "poetry.core.masonry.api"
 name = "sunxcorr"
 version = "0.0.1"
 description = "Solar image coalignment utilities and correlation tools"
-authors = ["Slimane MZERGUAT <slimane@example.org>"]
+authors = ["Slimane MZERGUAT <mzergaut.sl@gmail.com>"]
 readme = "README.md"
 packages = [{ include = "sunxcorr" }]
 
