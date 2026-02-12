@@ -23,7 +23,7 @@ class Orchestrator(CoalignmentNode):
     Automatically sets up persistent workers if not provided.
     """
 
-    def __init__(self, n_workers: int = 48):
+    def __init__(self, n_workers: int = 4) -> None:
         super().__init__()
         self.node_id = "orchestrator"
         self.node_name = "Orchestrator"

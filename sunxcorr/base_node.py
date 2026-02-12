@@ -134,7 +134,7 @@ class CoalignmentNode(ABC):
         msg = f"[{self.node_name}] Setting up persistent workers at {self.node_name}..."
         _vprint(self.get_verbose_level(), 2, msg)
         n_workers = (
-            self.n_workers if self.n_workers is not None else max(1, cpu_count() - 1)
+            self.n_workers if self.n_workers is not None else 1 #OLD max(1, cpu_count() - 1)
         )
         (
             task_queue,
