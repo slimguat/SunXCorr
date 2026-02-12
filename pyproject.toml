@@ -1,31 +1,31 @@
 [build-system]
-requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0"]
 
 [tool.poetry]
-name = "sunxcorr"
-version = "0.0.1"
-description = "Solar image coalignment utilities and correlation tools"
 authors = ["Slimane MZERGUAT <mzergaut.sl@gmail.com>"]
+description = "Solar image coalignment utilities and correlation tools"
+name = "sunxcorr"
+packages = [{include = "sunxcorr"}]
 readme = "README.md"
-packages = [{ include = "sunxcorr" }]
+version = "0.0.1"
 
 [tool.poetry.dependencies]
-python = "^3.11"
-numpy = "^1.23"
-scipy = "^1.9"
-numba = "^0.56"
-astropy = "^5.0"
-sunpy = "^4.1"
-reproject = "^0.9"
-matplotlib = "^3.5"
+astropy = "*"
+matplotlib = "*"
+numba = "*"
+numpy = "*"
+python = "*"
+reproject = "*"
+scipy = "*"
+sunpy = "*"
 
 [tool.poetry.dev-dependencies]
-pytest = "^7.0"
-pre-commit = "^3.0"
-black = "^23.0"
-isort = "^5.0"
-mypy = "^1.0"
+black = "*"
+isort = "*"
+mypy = "*"
+pre-commit = "*"
+pytest = "*"
 
 [tool.isort]
 profile = "black"
