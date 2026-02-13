@@ -4,7 +4,7 @@ numba
 astropy
 sunpy
 matplotlib
-mpl_animators
+mpl-animators
 reproject
 pandas
 # packaging is required on some systems for build/packaging tools

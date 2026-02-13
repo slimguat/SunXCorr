@@ -19,6 +19,7 @@ python = "*"
 reproject = "*"
 scipy = "*"
 sunpy = "*"
+mpl-animators = "^1.2"
 
 [tool.poetry.dev-dependencies]
 black = "*"
