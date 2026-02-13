@@ -7,6 +7,8 @@ matplotlib
 mpl_animators
 reproject
 pandas
+# packaging is required on some systems for build/packaging tools
+packaging
 # Development / tooling
 pre-commit
 black
