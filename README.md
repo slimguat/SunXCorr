@@ -172,7 +172,7 @@ poetry install --with dev
 # Or with pip (venv active):
 # pip install -e .   # if not already done
 pip install -U pytest       # ensure pytest is available
-```
+
 
 
 # Download the LFS-managed files referenced by the current checkout
@@ -181,7 +181,7 @@ git lfs pull
 # now run the quick tests (the quick runner avoids pytest collection issues)
 python tests/run_tests_quick.py
 # or run the full pytest suite
-python pytest  # use -q for quiet, -v or -vv for increased verbosity
+python -m pytest  # use -q for quiet, -v or -vv for increased verbosity
 ```
 
 
