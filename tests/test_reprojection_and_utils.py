@@ -13,12 +13,15 @@ from sunxcorr.utils import reproject_map_to_reference  # noqa: E402
 
 def _find_two_fits():
     base = Path(__file__).resolve().parents[1] / "fits_files"
-    fits = list(base.rglob("*.fits"))
-    if not fits:
-        pytest.skip("No FITS files available in fits_files/; skip tests")
-    if len(fits) == 1:
-        return fits[0], fits[0]
-    return fits[0], fits[1]
+    # fits = list(base.rglob("*.fits"))
+    # if not fits:
+    #     pytest.skip("No FITS files available in fits_files/; skip tests")
+    # if len(fits) == 1:
+    #     return fits[0], fits[0]
+    # return fits[0], fits[1]
+    fits1 = base / "FSI_174_20250918T154730.820.fits"
+    fits2 = base / "FSI_174_2024-10-17T014055.208.fits"
+    return fits1, fits2
 
 
 def test_reproject_map_to_reference_basic():
