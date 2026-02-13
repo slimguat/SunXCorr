@@ -109,7 +109,6 @@ pip install -e .
 python -c "import sunxcorr; print('sunxcorr import OK')"
 ```
 
-If the import succeeds, the package is installed. (To run the project's test-suite or quick runner see the **Tests** section below - note the quick runner may require example data stored with Git LFS.)
 
 ---
 
@@ -152,6 +151,7 @@ print(result)
 
 Git LFS note: some large data used by tests and examples (`fits_files/` assets) are stored with Git LFS. After cloning you must fetch the LFS objects before running tests that depend on these files:
 
+
 ```bash
 # clone the repository (example shown earlier in Quick start)
 
@@ -163,14 +163,29 @@ Git LFS note: some large data used by tests and examples (`fits_files/` assets) 
 # Initialize LFS for this repository (run inside the repo):
 git lfs install --local
 
+#- Install development/test dependencies.
+
+# Using Poetry (recommended):
+
+poetry install --with dev
+# or for older Poetry: poetry install --dev
+# Or with pip (venv active):
+# pip install -e .   # if not already done
+pip install -U pytest       # ensure pytest is available
+```
+
+
 # Download the LFS-managed files referenced by the current checkout
 git lfs pull
 
 # now run the quick tests (the quick runner avoids pytest collection issues)
 python tests/run_tests_quick.py
 # or run the full pytest suite
-pytest  # use -q for quiet, -v or -vv for increased verbosity
+python pytest  # use -q for quiet, -v or -vv for increased verbosity
 ```
+
+
+
 
 Notes:
 - If `git lfs` is not available, install it (e.g. `apt install git-lfs` or `brew install git-lfs`) and re-run `git lfs install`.

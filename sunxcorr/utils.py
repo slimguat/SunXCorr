@@ -69,7 +69,7 @@ def _as_datetime64_ms(val: _Any) -> Union[np.datetime64, NDArray]:
     np.datetime64) into `numpy.datetime64[ms]` which avoids Pylance overload
     complaints from direct `np.datetime64(..., "ms")` calls.
     """
-    return np.asarray(val, dtype="datetime64[ms]")
+    return np.datetime64(np.asarray(val, dtype="datetime64[ms]"))
 
 
 # import os
