@@ -13,13 +13,13 @@ version = "0.0.1"
 [tool.poetry.dependencies]
 astropy = "*"
 matplotlib = "*"
+mpl-animators = "*"
 numba = "*"
 numpy = "*"
 python = "*"
 reproject = "*"
 scipy = "*"
-sunpy = "*"
-mpl-animators = "^1.2"
+sunpy = {version = "*", extras = ["all"]}
 
 [tool.poetry.dev-dependencies]
 black = "*"

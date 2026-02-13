@@ -2,7 +2,7 @@ numpy
 scipy
 numba
 astropy
-sunpy
+sunpy[all]
 matplotlib
 mpl-animators
 reproject
