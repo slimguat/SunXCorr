@@ -2,9 +2,12 @@
 __pycache__/
 *.pyc
 data_storage/v1.0.1/
-fits_files/
 *.fits
 *.pdf
+
+# allow tracking example FITS in repository fits_files/ via LFS
+!fits_files/
+!fits_files/**
 
 # Virtual environments
 .venv/
