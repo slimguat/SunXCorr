@@ -1085,7 +1085,7 @@ def build_synthetic_raster_from_maps(
     order : int, optional
         Interpolation order for ``interpol2d`` (default 2).
     """
-    if not fsi_maps:
+    if fsi_maps is None or len(fsi_maps) == 0:
         raise ValueError("fsi_maps must be non-empty")
 
     _vprint(verbose, 1, "Building synthetic raster from FSI maps")
@@ -1098,7 +1098,6 @@ def build_synthetic_raster_from_maps(
         fsi_entries.append(entry)
         fsi_times_list.append(_extract_map_time(entry, verbose=verbose))
     fsi_times: NDArray = np.array(fsi_times_list)
-
     WCS3D = WCS(meta_to_header(spice_map.meta))
 
     x = np.arange(nx)
@@ -1672,5 +1671,16 @@ def apply_shift_and_scale_to_map(
     # Apply transformation
     best_params = {"dx": dx, "dy": dy, "squeeze_x": scale_x, "squeeze_y": scale_y}
     corrected_map = make_corrected_wcs_map(map_obj, best_params)
-
+    # if map_obj.__getattribute__("meta").get("pc3_1", 0) != 0:
+    #     # If original map had rotation, we need to re-apply it after scaling
+    #     # because scaling can affect the rotation matrix elements.
+    #     # This is a simplified approach that assumes the original rotation is small.
+    #     corrected_map.meta["pc3_1"] = map_obj.meta["pc3_1"] # type: ignore[assignment]
+    #     corrected_map.meta["cdelt3"] = map_obj.meta["cdelt3"] # type: ignore[assignment]
+    #     corrected_map.meta["cunit3"] = map_obj.meta["cunit3"] # type: ignore[assignment]
+    #     corrected_map.meta["ctype3"] = map_obj.meta["ctype3"] # type: ignore[assignment]
+    #     corrected_map.meta["crval3"] = map_obj.meta["crval3"] # type: ignore[assignment]
+    #     corrected_map.meta["cname3"] = map_obj.meta["cname3"] # type: ignore[assignment]
+        
+    
     return corrected_map

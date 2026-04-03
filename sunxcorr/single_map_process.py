@@ -196,6 +196,7 @@ class SingleMapProcess(CoalignmentNode):
                 2,
                 f"  Max shift (pixels, binned): X={max_shift_binned_pixels_x}, Y={max_shift_binned_pixels_y}",
             )
+            
         else:
             _vprint(verbose, 1, "Running at full resolution (no binning)")
             working_binned = extended_working_map
@@ -385,11 +386,26 @@ class SingleMapProcess(CoalignmentNode):
 
         # Store result
         execution_time = time.time() - start_time
+        # Preserve PC3-related metadata from the input (working_map) into corrected_map
+        if working_map.meta.get("PC3_1", None) is not None:
+            for k in ["PC3_1","CRVAL3", "CUNIT3", "CDELT3", "NAXIS3", "CNAME3", "CTYPE3",
+                      'dateref','mjdrefi','mjdreff']:
+                if k in working_map.meta:
+                    corrected_map.meta[k] = working_map.meta[k]  # type: ignore
+        
+        extra_data= {
+            "extended_working_map":extended_working_map, 
+            "reference_reprojected":reference_reprojected,
+            "working_binned" : working_binned,
+            "reference_binned" : reference_binned,
+            'extended_corrected_map': extended_corrected_map,
+            "corrected_map":corrected_map,
+            }
         self.result = ProcessResult(
             process_id=self.node_id,
             process_name=self.node_name,
             input_map=working_map,
-            output_map=corrected_map,
+            output_map=cast(GenericMap, corrected_map),
             shift_arcsec=(shift_x_arcsec, shift_y_arcsec),
             shift_pixels=(best_params["dx"], best_params["dy"]),
             scale_factors=(1.0, 1.0),
@@ -402,6 +418,7 @@ class SingleMapProcess(CoalignmentNode):
             reference_reprojected=reference_reprojected,  # Store reprojected reference for potential debugging
             history=history,
             iterations=iterations,
+            extra_data = extra_data,
         )
 
         self.is_executed = True

@@ -306,7 +306,23 @@ class SyntheticRasterProcess(CoalignmentNode):
             debug_pdf_path = str(output_dir / f"debug_{self.node_id}.pdf")
 
         # Store result
+        # Preserve PC3-related metadata from the input (working_map) into corrected_map
+        # try:
+        #     imeta = getattr(working_map, "meta", {}) or {}
+        #     if any(k.lower() == "pc3_1" for k in imeta):
+        #         for k, v in list(imeta.items()):
+        #             if k.lower() in {"crval3", "cunit3", "cdelt3", "naxis3", "cnam3"}:
+        #                 corrected_map.meta[k] = v # type : ignore
+        # except Exception:
+        #     # best-effort: do not raise if meta manipulation fails
+        #     pass
+        if working_map.meta.get("PC3_1", None) is not None:
+            for k in ["PC3_1","CRVAL3", "CUNIT3", "CDELT3", "NAXIS3", "CNAME3", "CTYPE3",
+                      'dateref','mjdrefi','mjdreff']:
+                if k in working_map.meta:
+                    corrected_map.meta[k] = working_map.meta[k]  # type: ignore
         execution_time = time.time() - start_time
+        
         self.result = ProcessResult(
             process_id=self.node_id,
             process_name=self.node_name,
@@ -325,6 +341,7 @@ class SyntheticRasterProcess(CoalignmentNode):
             reference_reprojected=synthetic_raster,
             history=history,
             iterations=iterations,
+            extra_data = {"synthetic_raster":synthetic_raster},  
         )
 
         self.is_executed = True
