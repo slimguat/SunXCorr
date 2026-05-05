@@ -29,6 +29,7 @@ The package is designed for solar image coalignment workflows where reproducible
 
 ---
 
+<a id="installation"></a>
 ## Installation
 
 Clone the repository:
@@ -68,6 +69,7 @@ pip install -e .
 
 ---
 
+<a id="quick-verification"></a>
 ## Quick Verification
 
 ```bash
@@ -76,6 +78,7 @@ python -c "import sunxcorr; print('sunxcorr import OK')"
 
 ---
 
+<a id="core-concepts"></a>
 ## Core Concepts
 
 SunXCorr provides two main alignment modes:
@@ -100,6 +103,7 @@ Input maps must contain the WCS and time-axis metadata required by the correctio
 
 ---
 
+<a id="minimal-correlation-example"></a>
 ## Minimal Correlation Example
 
 ```python
@@ -124,6 +128,7 @@ print(result)
 
 ---
 
+<a id="single-map-alignment"></a>
 ## Single Map Alignment
 
 Use `SingleMapProcess` when the target map must be aligned against one reference map.
@@ -161,6 +166,7 @@ result.output_map
 
 ---
 
+<a id="synthetic-raster-alignment"></a>
 ## Synthetic Raster Alignment
 
 Use `SyntheticRasterProcess` when the reference is built from a sequence of maps rather than a single reference map. This mode also supports small scale corrections.
@@ -186,6 +192,7 @@ xcorr_synth.reference_sequence = [list_maps_or_paths]  # list of SunPy maps or p
 
 ---
 
+<a id="orchestrated-multi-step-pipeline"></a>
 ## Orchestrated Multi-Step Pipeline
 
 The orchestrator can combine several alignment stages. The example below first performs a wide search, then progressively refines the solution with smaller shifts, synthetic raster alignment, and a final scale search.
@@ -244,6 +251,7 @@ root.cleanup()  # close workers and clean up resources after execution; close de
 
 ---
 
+<a id="example-results"></a>
 ## Example Results
 
 The figures below show a five-step alignment sequence for a map artificially shifted by 500 arcsec in both directions.
@@ -252,40 +260,41 @@ The figures below show a five-step alignment sequence for a map artificially shi
 
 The first stage explores a large search space and identifies the correct coarse solution.
 
-![scatter plot](./imgs/scatter_1.jpg)
+![scatter plot](https://raw.githubusercontent.com/slimguat/SunXCorr/main/imgs/scatter_1.jpg)
 
 ### Step 2: Fine Single-Map Refinement
 
 The second stage refines the solution in a smaller search space without binning.
 
-![scatter plot](./imgs/scatter_2.jpg)
+![scatter plot](https://raw.githubusercontent.com/slimguat/SunXCorr/main/imgs/scatter_2.jpg)
 
 ### Step 3: Synthetic Raster Refinement
 
 The third stage uses a synthetic raster to improve the match.
 
-![scatter plot](./imgs/scatter_3.jpg)
+![scatter plot](https://raw.githubusercontent.com/slimguat/SunXCorr/main/imgs/scatter_3.jpg)
 
 ### Step 4: Additional Synthetic Raster Refinement
 
 The fourth stage recomputes the synthetic-raster alignment with more neighbors.
 
-![scatter plot](./imgs/scatter_4.jpg)
+![scatter plot](https://raw.githubusercontent.com/slimguat/SunXCorr/main/imgs/scatter_4.jpg)
 
 ### Step 5: Final Scale Search
 
 The final stage searches for small scale corrections in a tighter shift range.
 
-![scatter plot](./imgs/scatter_5.jpg)
+![scatter plot](https://raw.githubusercontent.com/slimguat/SunXCorr/main/imgs/scatter_5.jpg)
 
 ### Final Map Comparison
 
 The final comparison shows the map coordinates before and after the correction sequence.
 
-![maps comparison](./imgs/maps_pipeline_comparison.png)
+![maps comparison](https://raw.githubusercontent.com/slimguat/SunXCorr/main/imgs/maps_pipeline_comparison.png)
 
 ---
 
+<a id="process-output"></a>
 ## Process Output
 
 `get_final_result()` returns a `ProcessResult`-like object containing the alignment output and diagnostics.
@@ -312,6 +321,7 @@ Common fields include:
 
 ---
 
+<a id="testing-and-static-checks"></a>
 ## Testing and Static Checks
 
 Install development dependencies, then run the tests:
@@ -344,6 +354,7 @@ python tests/run_tests_quick.py
 
 ---
 
+<a id="git-lfs-data"></a>
 ## Git LFS Data
 
 Some test and example data are stored with Git LFS. After cloning the repository, fetch the LFS-managed files before running data-dependent tests:
@@ -370,6 +381,7 @@ git lfs pull --include="fits_files/**"
 
 ---
 
+<a id="troubleshooting"></a>
 ## Troubleshooting
 
 If tests fail because example FITS files are missing, ensure that Git LFS is installed and that the LFS files have been pulled:
@@ -394,6 +406,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
 
 ---
 
+<a id="credits"></a>
 ## Credits
 
 This work was inspired by open-source alignment tools and code snippets by:
