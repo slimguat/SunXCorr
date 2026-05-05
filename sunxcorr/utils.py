@@ -12,6 +12,9 @@ True
 """
 
 from __future__ import annotations
+from sunpy.map import GenericMap, Map
+from scipy.ndimage import map_coordinates, uniform_filter
+from reproject import reproject_interp
 
 import copy
 import datetime
@@ -56,9 +59,6 @@ from matplotlib.colors import Normalize
 from numpy.typing import NDArray as _NDArray
 
 NDArray = _NDArray[_Any]
-from reproject import reproject_interp
-from scipy.ndimage import map_coordinates, uniform_filter
-from sunpy.map import GenericMap, Map
 
 
 # Small helper: cast various date-like inputs to numpy.datetime64[ms]
@@ -295,7 +295,8 @@ def build_corrected_wcs_meta_scale_shift(
         cdelt2p = cdelt2 * frob
 
         if verbose:
-            print(f"pc2_unit: Frobenius(PC)={frob:.6g} -> enforcing ||PC||_F=1")
+            print(
+                f"pc2_unit: Frobenius(PC)={frob:.6g} -> enforcing ||PC||_F=1")
 
         _write_pc_from_cd_and_cdelt(h, CDm, cdelt1p, cdelt2p)
         # overwrite PC with the normalized one explicitly (avoids tiny float drift)
@@ -405,7 +406,8 @@ def make_corrected_wcs_map(
 
     return cast(
         GenericMap,
-        sunpy.map.Map(map_in.data, new_meta, plot_settings=map_in.plot_settings),
+        sunpy.map.Map(map_in.data, new_meta,
+                      plot_settings=map_in.plot_settings),
     )
 
 
@@ -465,7 +467,8 @@ def no_nan_uniform_filter(
     --------
     scipy.ndimage.uniform_filter : Underlying filter function
     """
-    data_percentile: float = cast(float, np.nanpercentile(data, remove_percentile))
+    data_percentile: float = cast(
+        float, np.nanpercentile(data, remove_percentile))
     data_cleaned: NDArray = np.where(data > data_percentile, np.nan, data)
     nan_mask: NDArray = np.isnan(data_cleaned)
     data_filled: NDArray = np.where(nan_mask, 0.0, data_cleaned)
@@ -476,7 +479,8 @@ def no_nan_uniform_filter(
 
 def normit(
     data: NDArray | None = None,
-    interval: interval.BaseInterval | None = AsymmetricPercentileInterval(1, 99),
+    interval: interval.BaseInterval | None = AsymmetricPercentileInterval(
+        1, 99),
     stretch: stretch.BaseStretch | None = SqrtStretch(),
     vmin: float | None = None,
     vmax: float | None = None,
@@ -526,7 +530,8 @@ def normit(
 def get_closest_EUIFSI174_paths(
     date_ref: Union[np.datetime64, NDArray],
     interval: np.timedelta64,
-    local_dir: Union[str, Path] = Path("/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
+    local_dir: Union[str, Path] = Path(
+        "/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
     verbose: int = 0,
 ) -> List[Path]:
     """
@@ -587,7 +592,8 @@ def get_closest_EUIFSI174_paths(
 
     _vprint(verbose, 2, f"Extracting timestamps from {len(all_paths)} files")
     paths_arr = np.array(all_paths, dtype=object)
-    dates = np.array([extract_dt(p) for p in paths_arr], dtype="datetime64[ms]")
+    dates = np.array([extract_dt(p)
+                     for p in paths_arr], dtype="datetime64[ms]")
 
     # 4) Compute absolute differences to reference, mask out None
     valid_mask = dates != _as_datetime64_ms("NaT")
@@ -603,7 +609,8 @@ def get_closest_EUIFSI174_paths(
     # Sort lexicographically for reproducibility
     closest = sorted(candidates.tolist())
 
-    _vprint(verbose, 1, f"Found {len(closest)} closest file(s) within ±{interval}")
+    _vprint(
+        verbose, 1, f"Found {len(closest)} closest file(s) within ±{interval}")
     return closest
 
 
@@ -643,7 +650,8 @@ def _find_all_days(
 
 def _grab_EUI_data(
     date: Union[np.datetime64, NDArray],
-    local_dir: str | Path = Path("/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
+    local_dir: str | Path = Path(
+        "/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
     verbose: int = 0,
 ) -> List[Path]:
     """
@@ -694,7 +702,8 @@ def _grab_EUI_data(
 def get_EUI_paths(
     date_min: Union[np.datetime64, NDArray],
     date_max: Union[np.datetime64, NDArray],
-    local_dir: str | Path = Path("/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
+    local_dir: str | Path = Path(
+        "/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
     verbose: int = 0,
 ) -> List[Path]:
     """
@@ -806,7 +815,7 @@ def split_eui_paths_by_mode(
         start_match = re.search(r"solo_L[0-4]_", name)
         end_match = re.search(r"_(\d{8})T(\d{6})", name)
         if start_match and end_match:
-            return name[start_match.end() : end_match.start()]
+            return name[start_match.end(): end_match.start()]
         return ""
 
     modes = np.vectorize(_extract_mode)(list_paths)
@@ -833,7 +842,8 @@ def split_eui_paths_by_mode(
 def get_closest_EUIFSI304_paths(
     date_ref: np.datetime64,
     interval: np.timedelta64,
-    local_dir: Union[str, Path] = Path("/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
+    local_dir: Union[str, Path] = Path(
+        "/archive/SOLAR-ORBITER/EUI/data_internal/L2"),
     verbose: int = 0,
 ) -> List[Path]:
     """
@@ -885,7 +895,8 @@ def get_closest_EUIFSI304_paths(
         _vprint(verbose, 1, "No EUI files found in the interval.")
         return []
 
-    all_paths = cast(List[Path], split_eui_paths_by_mode(all_paths)["eui-fsi304-image"])
+    all_paths = cast(List[Path], split_eui_paths_by_mode(
+        all_paths)["eui-fsi304-image"])
 
     # 3) Extract timestamps from filenames
     def extract_dt(p: Path) -> Union[np.datetime64, None]:
@@ -899,7 +910,8 @@ def get_closest_EUIFSI304_paths(
 
     _vprint(verbose, 2, f"Extracting timestamps from {len(all_paths)} files")
     paths_arr = np.array(all_paths, dtype=object)
-    dates = np.array([extract_dt(p) for p in paths_arr], dtype="datetime64[ms]")
+    dates = np.array([extract_dt(p)
+                     for p in paths_arr], dtype="datetime64[ms]")
 
     # 4) Compute absolute differences to reference, mask out None
     valid_mask = dates != _as_datetime64_ms("NaT")
@@ -916,7 +928,8 @@ def get_closest_EUIFSI304_paths(
     # Sort lexicographically for reproducibility
     closest = sorted(candidates.tolist())
 
-    _vprint(verbose, 1, f"Found {len(closest)} closest file(s) within ±{interval}")
+    _vprint(
+        verbose, 1, f"Found {len(closest)} closest file(s) within ±{interval}")
     return closest
 
 
@@ -930,7 +943,8 @@ def _nearest_imager_index(
     deltas = np.abs(fsi_times - step_time) / np.timedelta64(1, "s")
     idx = int(np.argmin(deltas))
     sel_dt = deltas[idx]
-    _vprint(verbose, 2, f"Nearest FSI idx={idx}, Δt={sel_dt:.3f}s for step {step_time}")
+    _vprint(
+        verbose, 2, f"Nearest FSI idx={idx}, Δt={sel_dt:.3f}s for step {step_time}")
     if threshold is not None and sel_dt > (threshold / np.timedelta64(1, "s")):
         raise ValueError(
             f"No FSI map within {threshold / np.timedelta64(1, 's')} s for step at {step_time}"
@@ -955,7 +969,8 @@ def _extract_map_time(
     if header is None:
         raise ValueError(f"Unable to read FITS header from {entry}")
     hdr = header
-    date_key = hdr.get("DATE-AVG") or hdr.get("DATE-OBS") or hdr.get("DATE_BEG")
+    date_key = hdr.get(
+        "DATE-AVG") or hdr.get("DATE-OBS") or hdr.get("DATE_BEG")
     if date_key is None:
         raise ValueError(f"No DATE-* keyword found in {entry}")
     t = cast(np.datetime64, _as_datetime64_ms(date_key))
@@ -1028,7 +1043,8 @@ def _pixel_world_with_optional_time(
                 time_payload = None
         else:
             coords_spice = cast(
-                SkyCoord, world_result[0] if len(world_result) > 0 else world_result
+                SkyCoord, world_result[0] if len(
+                    world_result) > 0 else world_result
             )
             time_payload = None
     else:
@@ -1045,7 +1061,8 @@ def _coerce_step_times(
     if time_payload is None:
         return np.full(nx, default_time, dtype="datetime64[ms]")
     try:
-        dt_values = np.asarray(time_payload.to_datetime(), dtype="datetime64[ms]")
+        dt_values = np.asarray(
+            time_payload.to_datetime(), dtype="datetime64[ms]")
     except Exception:
         return np.full(nx, default_time, dtype="datetime64[ms]")
     if dt_values.ndim == 0:
@@ -1206,7 +1223,8 @@ def reproject_map_to_reference(
                 shape_out=target_shape,
                 order=order,
             )
-            reprojected_data2 = np.where(footprint2 > 0, reprojected_data2, np.nan)
+            reprojected_data2 = np.where(
+                footprint2 > 0, reprojected_data2, np.nan)
             if (
                 np.isfinite(reprojected_data2).sum()
                 > np.isfinite(reprojected_data).sum()
@@ -1442,8 +1460,10 @@ def arcsec_to_pixels(
     if isinstance(value_arcsec, tuple):
         # Separate X and Y values
         value_x, value_y = value_arcsec
-        pixels_x = int((value_x / pixel_scale_x).to(u.dimensionless_unscaled).value)
-        pixels_y = int((value_y / pixel_scale_y).to(u.dimensionless_unscaled).value)
+        pixels_x = int(
+            (value_x / pixel_scale_x).to(u.dimensionless_unscaled).value)
+        pixels_y = int(
+            (value_y / pixel_scale_y).to(u.dimensionless_unscaled).value)
         return pixels_x, pixels_y
     else:
         # Single value: convert using both pixel scales
@@ -1669,7 +1689,8 @@ def apply_shift_and_scale_to_map(
     dy = (shift_y_arcsec / pixel_scale_y).to(u.dimensionless_unscaled).value
 
     # Apply transformation
-    best_params = {"dx": dx, "dy": dy, "squeeze_x": scale_x, "squeeze_y": scale_y}
+    best_params = {"dx": dx, "dy": dy,
+                   "squeeze_x": scale_x, "squeeze_y": scale_y}
     corrected_map = make_corrected_wcs_map(map_obj, best_params)
     # if map_obj.__getattribute__("meta").get("pc3_1", 0) != 0:
     #     # If original map had rotation, we need to re-apply it after scaling
@@ -1681,6 +1702,5 @@ def apply_shift_and_scale_to_map(
     #     corrected_map.meta["ctype3"] = map_obj.meta["ctype3"] # type: ignore[assignment]
     #     corrected_map.meta["crval3"] = map_obj.meta["crval3"] # type: ignore[assignment]
     #     corrected_map.meta["cname3"] = map_obj.meta["cname3"] # type: ignore[assignment]
-        
-    
+
     return corrected_map

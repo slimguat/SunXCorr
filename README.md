@@ -3,7 +3,7 @@
 [![Release](https://img.shields.io/github/v/tag/slimguat/SunXCorr?label=release&sort=semver)](https://github.com/slimguat/SunXCorr/releases)
 [![PyPI](https://img.shields.io/pypi/v/SunXCorr?label=PyPI)](https://pypi.org/project/SunXCorr)
 [![License](https://img.shields.io/github/license/slimguat/SunXCorr)](https://github.com/slimguat/SunXCorr/blob/main/LICENSE)
-[![CI](https://github.com/slimguat/SunXCorr/actions/workflows/ci.yml/badge.svg)](https://github.com/slimguat/SunXCorr/actions)
+[![Docs](https://github.com/slimguat/SunXCorr/actions/workflows/docs.yml/badge.svg)](https://github.com/slimguat/SunXCorr/actions/workflows/docs.yml)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)](https://www.python.org)
 [![Issues](https://img.shields.io/github/issues/slimguat/SunXCorr)](https://github.com/slimguat/SunXCorr/issues)
 

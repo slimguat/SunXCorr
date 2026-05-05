@@ -82,11 +82,11 @@ class ProcessResult:
     reference_reprojected: GenericMap | None = (
         None  # Store reprojected reference for potential debugging
     )
-    extra_data: Dict[str, Any] = field(default_factory=dict)  # For any additional info
+    extra_data: Dict[str, Any] = field(
+        default_factory=dict)  # For any additional info
     history: List[Dict[str, Any]] = field(
         default_factory=list
     )  # Track optimization history
     iterations: list[Any] | int = field(
         default_factory=list
     )  # Per-iteration details or count
-    

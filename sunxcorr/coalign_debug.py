@@ -116,7 +116,8 @@ def blink_maps(
     im2.set_visible(False)  # start with SPICE hidden
     # add contour of SPICE in  the FSI iamge
 
-    data = cast(NDArray, spice_map.data)[~np.isnan(cast(NDArray, spice_map.data))]
+    data = cast(NDArray, spice_map.data)[
+        ~np.isnan(cast(NDArray, spice_map.data))]
     p99 = np.percentile(data, 99)
     p95 = np.percentile(data, 95)
     p90 = np.percentile(data, 90)
@@ -385,7 +386,8 @@ class DebugPlotContext:
         if not self.debug_points:
             return
         self._remove_non_marker_patches()
-        coords = np.array([[pt[0], pt[1]] for pt in self.debug_points], dtype=float)
+        coords = np.array([[pt[0], pt[1]]
+                          for pt in self.debug_points], dtype=float)
         corrs = np.array([pt[2] for pt in self.debug_points], dtype=float)
         self._sync_marker_rectangles(coords, corrs)
         rect = Rectangle(
@@ -574,7 +576,8 @@ class DebugPlotContext:
         timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         phase_suffix = f"_{phase_name}" if phase_name else ""
         gif_path = (
-            self.pdf_path.parent / f"comparison_animation{phase_suffix}_{timestamp}.gif"
+            self.pdf_path.parent /
+            f"comparison_animation{phase_suffix}_{timestamp}.gif"
         )
 
         # Save animation as GIF
@@ -583,7 +586,8 @@ class DebugPlotContext:
             ani.save(str(gif_path), writer=writer, dpi=100)
             _vprint(self.verbose, 3, f"Comparison animation saved: {gif_path}")
         except Exception as e:
-            _vprint(self.verbose, -1, f"Warning: Could not save animation: {e}")
+            _vprint(self.verbose, -1,
+                    f"Warning: Could not save animation: {e}")
 
         plt.close(fig)
 
@@ -816,10 +820,12 @@ class DebugPlotContext:
 
         if scale_varies:
             # Three axes: dx vs dy, sx vs sy, corr vs iteration
-            fig, axes = plt.subplots(1, 3, figsize=(16, 4), constrained_layout=True)
+            fig, axes = plt.subplots(1, 3, figsize=(
+                16, 4), constrained_layout=True)
 
             # dx vs dy colored by corr
-            sc1 = axes[0].scatter(dx, dy, c=corr, cmap="viridis", s=22, alpha=0.8)
+            sc1 = axes[0].scatter(
+                dx, dy, c=corr, cmap="viridis", s=22, alpha=0.8)
             axes[0].set_xlabel("dx (pixels)")
             axes[0].set_ylabel("dy (pixels)")
             axes[0].set_title("dx vs dy (color=corr)")
@@ -827,7 +833,8 @@ class DebugPlotContext:
             plt.colorbar(sc1, ax=axes[0], label="corr")
 
             # sx vs sy colored by corr
-            sc2 = axes[1].scatter(sx, sy, c=corr, cmap="viridis", s=22, alpha=0.8)
+            sc2 = axes[1].scatter(
+                sx, sy, c=corr, cmap="viridis", s=22, alpha=0.8)
             axes[1].set_xlabel("sx (scale)")
             axes[1].set_ylabel("sy (scale)")
             axes[1].set_title("sx vs sy (color=corr)")
@@ -844,10 +851,12 @@ class DebugPlotContext:
             axes[2].grid(True, alpha=0.3)
         else:
             # Two axes: dx vs dy, corr vs iteration (no scale optimization)
-            fig, axes = plt.subplots(1, 2, figsize=(11, 4), constrained_layout=True)
+            fig, axes = plt.subplots(1, 2, figsize=(
+                11, 4), constrained_layout=True)
 
             # dx vs dy colored by corr
-            sc1 = axes[0].scatter(dx, dy, c=corr, cmap="viridis", s=22, alpha=0.8)
+            sc1 = axes[0].scatter(
+                dx, dy, c=corr, cmap="viridis", s=22, alpha=0.8)
             axes[0].set_xlabel("dx (pixels)")
             axes[0].set_ylabel("dy (pixels)")
             axes[0].set_title("dx vs dy (color=corr)")
@@ -873,7 +882,8 @@ class DebugPlotContext:
             self.point_radius_y_data = data_radius
         if not self.debug_points:
             return
-        coords = np.array([[pt[0], pt[1]] for pt in self.debug_points], dtype=float)
+        coords = np.array([[pt[0], pt[1]]
+                          for pt in self.debug_points], dtype=float)
         corrs = np.array([pt[2] for pt in self.debug_points], dtype=float)
         self._sync_marker_rectangles(coords, corrs)
 
@@ -1009,7 +1019,8 @@ def create_debug_context(
     fig, ax = plt.subplots(figsize=(6, 6), dpi=dpi)
     ax.set_xlim(-shift_x - 1, shift_x + 1)
     ax.set_ylim(-shift_y - 1, shift_y + 1)
-    color_mappable = ScalarMappable(norm=Normalize(0.0, 1.0), cmap=SCATTER_COLORMAP)
+    color_mappable = ScalarMappable(
+        norm=Normalize(0.0, 1.0), cmap=SCATTER_COLORMAP)
     color_mappable.set_array([])
     cbar = fig.colorbar(color_mappable, ax=ax, shrink=0.85)
     if cbar.solids is not None:

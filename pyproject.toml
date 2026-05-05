@@ -1,27 +1,51 @@
 [build-system]
 build-backend = "poetry.core.masonry.api"
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=1.9.0"]
+
+[project]
+authors = [
+  {name = "Slimane Mzerguat", email = "mzergaut.sl@gmail.com"},
+  {name = "Slimane Mzerguat", email = "slimane.mzerguat@universite-paris-saclay.fr"},
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Scientific/Engineering :: Astronomy",
+]
+dependencies = [
+  "astropy",
+  "matplotlib",
+  "mpl-animators",
+  "numba",
+  "numpy",
+  "reproject",
+  "scipy",
+  "sunpy[all]",
+]
+description = "Solar image coalignment utilities and correlation tools"
+keywords = ["solar", "sunpy", "coalignment", "cross-correlation", "wcs", "fits"]
+license = {text = "MIT"}
+maintainers = [
+  {name = "Slimane Mzerguat", email = "slimane.mzerguat@universite-paris-saclay.fr"},
+]
+name = "sunxcorr"
+readme = "README.md"
+requires-python = ">=3.11"
+version = "2.0.0"
+
+[project.urls]
+Homepage = "https://github.com/slimguat/SunXCorr"
+Issues = "https://github.com/slimguat/SunXCorr/issues"
+Releases = "https://github.com/slimguat/SunXCorr/releases"
+Repository = "https://github.com/slimguat/SunXCorr"
 
 [tool.poetry]
-authors = ["Slimane MZERGUAT <mzergaut.sl@gmail.com>"]
-description = "Solar image coalignment utilities and correlation tools"
-name = "sunxcorr"
 packages = [{include = "sunxcorr"}]
-readme = "README.md"
-version = "0.0.1"
 
-[tool.poetry.dependencies]
-astropy = "*"
-matplotlib = "*"
-mpl-animators = "*"
-numba = "*"
-numpy = "*"
-python = "*"
-reproject = "*"
-scipy = "*"
-sunpy = {version = "*", extras = ["all"]}
-
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 black = "*"
 isort = "*"
 mypy = "*"
@@ -32,4 +56,4 @@ pytest = "*"
 profile = "black"
 
 [tool.black]
-line-length = 88
+line-length = 120

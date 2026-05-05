@@ -321,7 +321,8 @@ def compute_gradient_step_nd(
         delta = corr - center_corr
         if delta <= 0:
             continue
-        diff = np.array(point, dtype=float) - np.array(current_center, dtype=float)
+        diff = np.array(point, dtype=float) - \
+            np.array(current_center, dtype=float)
         grad += diff * delta
         weight_sum += delta
 

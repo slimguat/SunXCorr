@@ -125,7 +125,8 @@ def squeeze_to_ref_grid(
         cy, cx = center
 
     # affine: out_coord -> in_coord = A*out_coord + offset
-    A = np.array([[1.0 / squeeze_y, 0.0], [0.0, 1.0 / squeeze_x]], dtype=np.float64)
+    A = np.array([[1.0 / squeeze_y, 0.0], [0.0, 1.0 / squeeze_x]],
+                 dtype=np.float64)
 
     center_vec = np.array([cy, cx], dtype=np.float64)
     offset = center_vec - A @ center_vec

@@ -134,7 +134,7 @@ class CoalignmentNode(ABC):
         msg = f"[{self.node_name}] Setting up persistent workers at {self.node_name}..."
         _vprint(self.get_verbose_level(), 2, msg)
         n_workers = (
-            self.n_workers if self.n_workers is not None else 1 #OLD max(1, cpu_count() - 1)
+            self.n_workers if self.n_workers is not None else cpu_count() or 4
         )
         (
             task_queue,
@@ -157,9 +157,11 @@ class CoalignmentNode(ABC):
             "shared_payloads": self.shared_payloads,
             "worker_processes": self.worker_processes,
         }
-        present = [name for name, value in components.items() if value is not None]
+        present = [name for name, value in components.items()
+                   if value is not None]
         if present and len(present) != len(components):
-            missing = [name for name, value in components.items() if value is None]
+            missing = [name for name, value in components.items()
+                       if value is None]
             red = "\033[31m"
             reset = "\033[0m"
             msg = (
@@ -188,7 +190,8 @@ class CoalignmentNode(ABC):
                         1,
                         "Output directory not set; using default './data_storage/debug_output/'",
                     )
-                    self.output_directory = Path("./data_storage/debug_output/")
+                    self.output_directory = Path(
+                        "./data_storage/debug_output/")
                     _vprint(
                         verbose, 1, f"Output directory set to: {self.output_directory}"
                     )
@@ -203,10 +206,12 @@ class CoalignmentNode(ABC):
                     else ""
                 )
                 debug_pdf_path = (
-                    self.output_directory / f"debug_complete_pipeline_{date}.pdf"
+                    self.output_directory /
+                    f"debug_complete_pipeline_{date}.pdf"
                 )
                 self.debug_writer = PdfPages(debug_pdf_path)
-                _vprint(verbose, 1, f"Debug PDF writer created at: {debug_pdf_path}")
+                _vprint(
+                    verbose, 1, f"Debug PDF writer created at: {debug_pdf_path}")
 
         working_map = self.get_working_map()
 
@@ -492,7 +497,8 @@ class CoalignmentNode(ABC):
             self.result_queue = None
             self.shared_payloads = None
             self.worker_processes = None
-            _vprint(verbose, 2, f"[{self.node_name}] Persistent workers shut down")
+            _vprint(
+                verbose, 2, f"[{self.node_name}] Persistent workers shut down")
 
         # Close the worker pool
         if hasattr(self, "worker_pool") and self.worker_pool is not None:

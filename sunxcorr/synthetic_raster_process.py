@@ -69,7 +69,8 @@ class SyntheticRasterProcess(CoalignmentNode):
 
         # Validate units
         if not isinstance(max_shift, u.Quantity):
-            raise TypeError("max_shift must be astropy Quantity with angle units")
+            raise TypeError(
+                "max_shift must be astropy Quantity with angle units")
         if not max_shift.unit.is_equivalent(u.arcsec):
             raise ValueError("max_shift must have angle units")
 
@@ -148,7 +149,8 @@ class SyntheticRasterProcess(CoalignmentNode):
             fsi_maps=reference_sequence,
             verbose=verbose,
         )
-        _vprint(verbose, 2, f"  Synthetic raster shape: {synthetic_raster.data.shape}")
+        _vprint(
+            verbose, 2, f"  Synthetic raster shape: {synthetic_raster.data.shape}")
 
         # Convert units to pixels (separate X and Y)
         max_shift_pixels_x, max_shift_pixels_y = arcsec_to_pixels(
@@ -168,8 +170,10 @@ class SyntheticRasterProcess(CoalignmentNode):
 
         # Get center pixel from working map CRPIX
         center_pix = (
-            float(working_map.meta.get("CRPIX1", working_map.data.shape[1] / 2.0)),
-            float(working_map.meta.get("CRPIX2", working_map.data.shape[0] / 2.0)),
+            float(working_map.meta.get(
+                "CRPIX1", working_map.data.shape[1] / 2.0)),
+            float(working_map.meta.get(
+                "CRPIX2", working_map.data.shape[0] / 2.0)),
         )
         _vprint(
             verbose,
@@ -233,7 +237,8 @@ class SyntheticRasterProcess(CoalignmentNode):
 
         _vprint(verbose, 1, "\nOptimization complete:")
         _vprint(verbose, 1, f"  Iterations: {iterations}")
-        _vprint(verbose, 1, f"  Shift: ({shift_x_arcsec:.2f}, {shift_y_arcsec:.2f})")
+        _vprint(
+            verbose, 1, f"  Shift: ({shift_x_arcsec:.2f}, {shift_y_arcsec:.2f})")
         if self.scale_step > 0:
             _vprint(verbose, 1, f"  Scale: ({scale_x:.4f}, {scale_y:.4f})")
         _vprint(verbose, 1, f"  Correlation: {best_params['corr']:.4f}")
@@ -293,7 +298,8 @@ class SyntheticRasterProcess(CoalignmentNode):
 
             # Create blink animation
             animation_path = output_dir / f"blink_{self.node_id}.gif"
-            _vprint(verbose, 2, f"  Creating blink animation: {animation_path}")
+            _vprint(
+                verbose, 2, f"  Creating blink animation: {animation_path}")
             debug_ctx.render_comparison_animation(
                 ref_map=synthetic_raster,
                 target_map=working_map,
@@ -317,12 +323,12 @@ class SyntheticRasterProcess(CoalignmentNode):
         #     # best-effort: do not raise if meta manipulation fails
         #     pass
         if working_map.meta.get("PC3_1", None) is not None:
-            for k in ["PC3_1","CRVAL3", "CUNIT3", "CDELT3", "NAXIS3", "CNAME3", "CTYPE3",
-                      'dateref','mjdrefi','mjdreff']:
+            for k in ["PC3_1", "CRVAL3", "CUNIT3", "CDELT3", "NAXIS3", "CNAME3", "CTYPE3",
+                      'dateref', 'mjdrefi', 'mjdreff']:
                 if k in working_map.meta:
                     corrected_map.meta[k] = working_map.meta[k]  # type: ignore
         execution_time = time.time() - start_time
-        
+
         self.result = ProcessResult(
             process_id=self.node_id,
             process_name=self.node_name,
@@ -341,7 +347,7 @@ class SyntheticRasterProcess(CoalignmentNode):
             reference_reprojected=synthetic_raster,
             history=history,
             iterations=iterations,
-            extra_data = {"synthetic_raster":synthetic_raster},  
+            extra_data={"synthetic_raster": synthetic_raster},
         )
 
         self.is_executed = True

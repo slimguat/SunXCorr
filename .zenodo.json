@@ -1,0 +1,27 @@
+{
+  "title": "SunXCorr",
+  "description": "SunXCorr is a Python toolkit for automated cross-correlation and WCS correction of solar FITS images. It estimates relative translations, and optional small scale adjustments, between SunPy maps and updates the corresponding WCS metadata.",
+  "version": "2.0.0",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "MIT",
+  "creators": [
+    {
+      "name": "Mzerguat, Slimane"
+    }
+  ],
+  "keywords": [
+    "solar physics",
+    "SunPy",
+    "cross-correlation",
+    "WCS",
+    "co-alignment"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/slimguat/SunXCorr",
+      "relation": "isSupplementTo",
+      "resource_type": "software"
+    }
+  ]
+}

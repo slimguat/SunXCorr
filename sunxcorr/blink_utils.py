@@ -54,12 +54,15 @@ def make_blink_animation(
     after_data = np.asarray(after_map.data)
 
     # Normalize for display
-    vmin = min(np.nanpercentile(before_data, 1), np.nanpercentile(after_data, 1))
-    vmax = max(np.nanpercentile(before_data, 99), np.nanpercentile(after_data, 99))
+    vmin = min(np.nanpercentile(before_data, 1),
+               np.nanpercentile(after_data, 1))
+    vmax = max(np.nanpercentile(before_data, 99),
+               np.nanpercentile(after_data, 99))
 
     # Create figure
     fig, ax = plt.subplots(figsize=(8, 6))
-    im = ax.imshow(before_data, origin="lower", cmap="gray", vmin=vmin, vmax=vmax)
+    im = ax.imshow(before_data, origin="lower",
+                   cmap="gray", vmin=vmin, vmax=vmax)
     ax.set_title(f"{title}\nBefore")
     ax.axis("off")
     plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
@@ -79,7 +82,8 @@ def make_blink_animation(
         return [im]
 
     # Create animation
-    anim = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
+    anim = FuncAnimation(fig, update, frames=frames,
+                         interval=interval, blit=False)
 
     # Save as GIF
     writer = PillowWriter(fps=1000 // interval)

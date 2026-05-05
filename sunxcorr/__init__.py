@@ -13,6 +13,7 @@ Import the main API classes:
 
 from __future__ import annotations
 
+from ._metadata import get_author, get_description, get_version
 from .base_node import CoalignmentNode  # noqa: F401
 from .orchestrator import Orchestrator  # noqa: F401
 from .process_result import ProcessResult  # noqa: F401
@@ -27,5 +28,6 @@ __all__ = [
     "ProcessResult",
 ]
 
-__version__ = "2.0.0"
-__author__ = "Slimane MZERGUAT"
+__version__ = get_version()
+__author__ = get_author()
+__description__ = get_description()

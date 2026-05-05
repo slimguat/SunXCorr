@@ -70,14 +70,18 @@ class SingleMapProcess(CoalignmentNode):
 
         # Validate units
         if not isinstance(max_shift, u.Quantity):
-            raise TypeError("max_shift must be astropy Quantity with angle units")
+            raise TypeError(
+                "max_shift must be astropy Quantity with angle units")
         if not max_shift.unit.is_equivalent(u.arcsec):
-            raise ValueError(f"max_shift must have angle units, got {max_shift.unit}")
+            raise ValueError(
+                f"max_shift must have angle units, got {max_shift.unit}")
 
         if not isinstance(bin_kernel, u.Quantity):
-            raise TypeError("bin_kernel must be astropy Quantity with angle units")
+            raise TypeError(
+                "bin_kernel must be astropy Quantity with angle units")
         if not bin_kernel.unit.is_equivalent(u.arcsec):
-            raise ValueError(f"bin_kernel must have angle units, got {bin_kernel.unit}")
+            raise ValueError(
+                f"bin_kernel must have angle units, got {bin_kernel.unit}")
 
         # Store configuration
         self.max_shift = max_shift.to(u.arcsec)
@@ -160,7 +164,8 @@ class SingleMapProcess(CoalignmentNode):
 
         # Apply binning if requested
         if self.bin_kernel.value >= 1:
-            bin_factor_x, bin_factor_y = arcsec_to_pixels(self.bin_kernel, working_map)
+            bin_factor_x, bin_factor_y = arcsec_to_pixels(
+                self.bin_kernel, working_map)
             bin_factor_x = max(1, bin_factor_x)
             bin_factor_y = max(1, bin_factor_y)
             _vprint(
@@ -168,7 +173,8 @@ class SingleMapProcess(CoalignmentNode):
                 1,
                 f"Applying binning: {bin_factor_x}x (X) × {bin_factor_y}x (Y)...",
             )
-            working_binned = bin_map(extended_working_map, (bin_factor_x, bin_factor_y))
+            working_binned = bin_map(
+                extended_working_map, (bin_factor_x, bin_factor_y))
             reference_binned = bin_map(
                 reference_reprojected, (bin_factor_x, bin_factor_y)
             )
@@ -184,8 +190,10 @@ class SingleMapProcess(CoalignmentNode):
             )
 
             # Scale max_shift for binned pixels (separate X and Y)
-            max_shift_binned_pixels_x = max(1, max_shift_pixels_x // bin_factor_x)
-            max_shift_binned_pixels_y = max(1, max_shift_pixels_y // bin_factor_y)
+            max_shift_binned_pixels_x = max(
+                1, max_shift_pixels_x // bin_factor_x)
+            max_shift_binned_pixels_y = max(
+                1, max_shift_pixels_y // bin_factor_y)
             # Use tuple for asymmetric search (different X/Y pixel scales)
             max_shift_binned_pixels = (
                 max_shift_binned_pixels_x,
@@ -196,7 +204,7 @@ class SingleMapProcess(CoalignmentNode):
                 2,
                 f"  Max shift (pixels, binned): X={max_shift_binned_pixels_x}, Y={max_shift_binned_pixels_y}",
             )
-            
+
         else:
             _vprint(verbose, 1, "Running at full resolution (no binning)")
             working_binned = extended_working_map
@@ -225,10 +233,12 @@ class SingleMapProcess(CoalignmentNode):
         # Get center pixel from binned map CRPIX
         center_pix = (
             float(
-                working_binned.meta.get("CRPIX1", working_binned.data.shape[1] / 2.0)
+                working_binned.meta.get(
+                    "CRPIX1", working_binned.data.shape[1] / 2.0)
             ),
             float(
-                working_binned.meta.get("CRPIX2", working_binned.data.shape[0] / 2.0)
+                working_binned.meta.get(
+                    "CRPIX2", working_binned.data.shape[0] / 2.0)
             ),
         )
         _vprint(
@@ -299,7 +309,8 @@ class SingleMapProcess(CoalignmentNode):
 
         _vprint(verbose, 1, "\nOptimization complete:")
         _vprint(verbose, 1, f"  Iterations: {iterations}")
-        _vprint(verbose, 1, f"  Shift: ({shift_x_arcsec:.2f}, {shift_y_arcsec:.2f})")
+        _vprint(
+            verbose, 1, f"  Shift: ({shift_x_arcsec:.2f}, {shift_y_arcsec:.2f})")
         _vprint(verbose, 1, f"  Correlation: {best_params['corr']:.4f}")
 
         # Apply shift to original (unbinned) map
@@ -363,12 +374,14 @@ class SingleMapProcess(CoalignmentNode):
 
             # Create blink animation
             animation_path = output_dir / f"blink_{self.node_id}.gif"
-            _vprint(verbose, 2, f"  Creating blink animation: {animation_path}")
+            _vprint(
+                verbose, 2, f"  Creating blink animation: {animation_path}")
             if self.bin_kernel.value > 1:
                 debug_ctx.render_comparison_animation(
                     ref_map=reference_binned,
                     target_map=working_binned,
-                    corrected_map=extended_corrected_map,  # Show corrected in binned space for animation
+                    # Show corrected in binned space for animation
+                    corrected_map=extended_corrected_map,
                     phase_name=self.node_name + "Binned maps",
                     interval=800,
                     n_cycles=3,
@@ -388,19 +401,19 @@ class SingleMapProcess(CoalignmentNode):
         execution_time = time.time() - start_time
         # Preserve PC3-related metadata from the input (working_map) into corrected_map
         if working_map.meta.get("PC3_1", None) is not None:
-            for k in ["PC3_1","CRVAL3", "CUNIT3", "CDELT3", "NAXIS3", "CNAME3", "CTYPE3",
-                      'dateref','mjdrefi','mjdreff']:
+            for k in ["PC3_1", "CRVAL3", "CUNIT3", "CDELT3", "NAXIS3", "CNAME3", "CTYPE3",
+                      'dateref', 'mjdrefi', 'mjdreff']:
                 if k in working_map.meta:
                     corrected_map.meta[k] = working_map.meta[k]  # type: ignore
-        
-        extra_data= {
-            "extended_working_map":extended_working_map, 
-            "reference_reprojected":reference_reprojected,
-            "working_binned" : working_binned,
-            "reference_binned" : reference_binned,
+
+        extra_data = {
+            "extended_working_map": extended_working_map,
+            "reference_reprojected": reference_reprojected,
+            "working_binned": working_binned,
+            "reference_binned": reference_binned,
             'extended_corrected_map': extended_corrected_map,
-            "corrected_map":corrected_map,
-            }
+            "corrected_map": corrected_map,
+        }
         self.result = ProcessResult(
             process_id=self.node_id,
             process_name=self.node_name,
@@ -415,10 +428,11 @@ class SingleMapProcess(CoalignmentNode):
             execution_time=execution_time,
             debug_pdf_path=debug_pdf_path,
             animation_path=animation_path,
-            reference_reprojected=reference_reprojected,  # Store reprojected reference for potential debugging
+            # Store reprojected reference for potential debugging
+            reference_reprojected=reference_reprojected,
             history=history,
             iterations=iterations,
-            extra_data = extra_data,
+            extra_data=extra_data,
         )
 
         self.is_executed = True

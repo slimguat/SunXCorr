@@ -95,7 +95,6 @@ def _corr_worker_loop(
 
     import os
     import time as _time
-    import queue as _queue
 
     def _debug_log(msg: str) -> None:
         try:
@@ -187,7 +186,8 @@ def optimize_shift_and_scale(
     max_shift: int | Tuple[int, int],
     scale_step: float = 0.0,
     scale_range: (
-        Tuple[Tuple[float, float], Tuple[float, float]] | Tuple[float, float] | None
+        Tuple[Tuple[float, float], Tuple[float, float]
+              ] | Tuple[float, float] | None
     ) = None,
     workers: Any = None,
     center_pix: Tuple[float, float] | None = None,
@@ -285,8 +285,10 @@ def optimize_shift_and_scale(
     }
 
     # Determine number of workers from workers parameter
-    n_workers = workers._processes if workers and hasattr(workers, "_processes") else 1
-    _vprint(verbose, 2, f"Using {n_workers} persistent workers (managed externally)")
+    n_workers = workers._processes if workers and hasattr(
+        workers, "_processes") else 1
+    _vprint(
+        verbose, 2, f"Using {n_workers} persistent workers (managed externally)")
 
     next_job_id = 0
 
@@ -295,7 +297,8 @@ def optimize_shift_and_scale(
         all_points, neighbor_offsets = build_shift_structures(shift_x, shift_y)
         total_points = (2 * shift_x + 1) * (2 * shift_y + 1)
 
-        _vprint(verbose, 2, f"Using {n_workers} workers with batch processing...")
+        _vprint(
+            verbose, 2, f"Using {n_workers} workers with batch processing...")
         _vprint(verbose, 2, f"Total shift points: {total_points}...")
 
         cache: Dict[Tuple[int, int], float] = {}
@@ -330,13 +333,14 @@ def optimize_shift_and_scale(
 
             if uncached:
                 # Batch processing with persistent workers
-                batch_size = max(1, int(math.ceil(len(uncached) / max(1, n_workers))))
+                batch_size = max(
+                    1, int(math.ceil(len(uncached) / max(1, n_workers))))
                 job_map: Dict[int, List[Tuple[int, int]]] = {}
                 pending_jobs: set[int] = set()
 
                 # Submit batches to workers
                 for i in range(0, len(uncached), batch_size):
-                    chunk = uncached[i : i + batch_size]
+                    chunk = uncached[i: i + batch_size]
                     job_id = next_job_id
                     next_job_id += 1
 
@@ -374,7 +378,8 @@ def optimize_shift_and_scale(
                             with open(
                                 "/tmp/sunxcorr_worker_debug.log", "a", encoding="utf-8"
                             ) as fh:
-                                fh.write(f"{_time.time():.3f} got result job_id={job_id} len={len(batch)}\n")
+                                fh.write(
+                                    f"{_time.time():.3f} got result job_id={job_id} len={len(batch)}\n")
                     except Exception:
                         pass
                     pending_jobs.discard(job_id)
@@ -433,7 +438,8 @@ def optimize_shift_and_scale(
             if debug_ctx is not None:
                 debug_ctx.render_iteration(current_center, search_phase)
 
-            best_point, best_corr = max(cache.items(), key=lambda item: item[1])
+            best_point, best_corr = max(
+                cache.items(), key=lambda item: item[1])
             if best_corr > global_best_corr:
                 global_best_corr = best_corr
             msg = (
@@ -466,7 +472,8 @@ def optimize_shift_and_scale(
                 _vprint(verbose, 2, "Plateau condition met; stopping.")
                 break
 
-            step_vec = compute_gradient_step(local_points, current_center, best_point)
+            step_vec = compute_gradient_step(
+                local_points, current_center, best_point)
             candidate_center = clamp_point(
                 (
                     current_center[0] + int(step_vec[0]),
@@ -554,7 +561,8 @@ def optimize_shift_and_scale(
         dx_vals = list(range(-shift_x, shift_x + 1))
         dy_vals = list(range(-shift_y, shift_y + 1))
 
-        total_points = len(dx_vals) * len(dy_vals) * len(sx_vals) * len(sy_vals)
+        total_points = len(dx_vals) * len(dy_vals) * \
+            len(sx_vals) * len(sy_vals)
         _vprint(
             verbose,
             2,
@@ -597,13 +605,14 @@ def optimize_shift_and_scale(
 
             if uncached:
                 # Batch processing with persistent workers
-                batch_size = max(1, int(math.ceil(len(uncached) / max(1, n_workers))))
+                batch_size = max(
+                    1, int(math.ceil(len(uncached) / max(1, n_workers))))
                 job_map: Dict[int, List[Tuple[int, int, float, float]]] = {}
                 pending_jobs: set[int] = set()
 
                 # Submit batches to workers
                 for i in range(0, len(uncached), batch_size):
-                    chunk = uncached[i : i + batch_size]
+                    chunk = uncached[i: i + batch_size]
                     job_id = next_job_id
                     next_job_id += 1
 
@@ -630,7 +639,8 @@ def optimize_shift_and_scale(
                         point_sy,
                     ) in zip(batch, chunk_points):
                         _record_corr_4d(
-                            int(dx), int(dy), float(point_sx), float(point_sy), corr_val
+                            int(dx), int(dy), float(
+                                point_sx), float(point_sy), corr_val
                         )
                         results.append(
                             (
@@ -708,7 +718,8 @@ def optimize_shift_and_scale(
                                 continue
 
                             if (new_dx, new_dy, new_sx, new_sy) not in cache4d:
-                                neighbors.append((new_dx, new_dy, new_sx, new_sy))
+                                neighbors.append(
+                                    (new_dx, new_dy, new_sx, new_sy))
 
             # Limit neighbors
             if len(neighbors) > n_neighbors:
@@ -721,7 +732,8 @@ def optimize_shift_and_scale(
             _evaluate_points_4d(neighbors)
 
             if debug_ctx is not None:
-                debug_ctx.render_iteration((center_dx, center_dy), search_phase)
+                debug_ctx.render_iteration(
+                    (center_dx, center_dy), search_phase)
 
             # Find best
             best_key = max(cache4d.items(), key=lambda item: item[1])[0]
@@ -754,7 +766,8 @@ def optimize_shift_and_scale(
                 break
 
             # Move to best point
-            current_center_4d = ((best_key[0], best_key[1]), (best_key[2], best_key[3]))
+            current_center_4d = (
+                (best_key[0], best_key[1]), (best_key[2], best_key[3]))
 
         # Workers remain alive for subsequent calls (managed externally)
         msg = (
