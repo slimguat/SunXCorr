@@ -4,7 +4,7 @@ requires = ["poetry-core>=1.9.0"]
 
 [project]
 authors = [
-  {name = "Slimane Mzerguat", email = "mzergaut.sl@gmail.com"},
+  {name = "Slimane Mzerguat", email = "mzerguat.sl@gmail.com"},
   {name = "Slimane Mzerguat", email = "slimane.mzerguat@universite-paris-saclay.fr"},
 ]
 classifiers = [
@@ -34,7 +34,7 @@ maintainers = [
 name = "sunxcorr"
 readme = "README.md"
 requires-python = ">=3.11"
-version = "2.0.1"
+version = "2.1.0"
 
 [project.urls]
 Homepage = "https://github.com/slimguat/SunXCorr"

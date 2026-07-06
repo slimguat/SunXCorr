@@ -51,6 +51,7 @@ from astropy.visualization import (
 )
 from astropy.wcs import WCS
 from matplotlib.colors import Normalize
+import logging
 
 # Use a concrete NDArray[Any] alias at runtime and for type checking.
 # Importing and subscripting numpy.typing.NDArray is safe here and avoids
@@ -59,6 +60,9 @@ from matplotlib.colors import Normalize
 from numpy.typing import NDArray as _NDArray
 
 NDArray = _NDArray[_Any]
+
+# module logger
+logger = logging.getLogger(__name__)
 
 
 # Small helper: cast various date-like inputs to numpy.datetime64[ms]
@@ -1214,7 +1218,10 @@ def reproject_map_to_reference(
     # Some versions/instrument combinations produce very small footprints
     # when passing the Map object directly; try passing the (data, wcs)
     # tuple as a fallback to improve coverage.
-    finite_frac = np.isfinite(reprojected_data).sum() / reprojected_data.size
+    total_size = reprojected_data.size
+    finite_count = int(np.isfinite(reprojected_data).sum())
+    finite_frac = finite_count / total_size
+    fallback_used = False
     if finite_frac < 0.05:
         try:
             reprojected_data2, footprint2 = reproject_interp(
@@ -1225,17 +1232,36 @@ def reproject_map_to_reference(
             )
             reprojected_data2 = np.where(
                 footprint2 > 0, reprojected_data2, np.nan)
-            if (
-                np.isfinite(reprojected_data2).sum()
-                > np.isfinite(reprojected_data).sum()
-            ):
+            finite_count2 = int(np.isfinite(reprojected_data2).sum())
+            # If fallback improves finite coverage, use it and record that
+            if finite_count2 > finite_count:
+                logger.warning(
+                    "reproject_map_to_reference: used fallback reproject_interp((data,wcs)) which may bypass SunPy propagation; coverage %d->%d (%.2f%%->%.2f%%)",
+                    finite_count,
+                    finite_count2,
+                    100.0 * finite_count / total_size,
+                    100.0 * finite_count2 / total_size,
+                )
                 reprojected_data = reprojected_data2
                 footprint = footprint2
-        except Exception:
-            # If fallback fails, keep original reprojected_data
-            pass
+                fallback_used = True
+            else:
+                logger.warning(
+                    "reproject_map_to_reference: fallback reproject_interp((data,wcs)) attempted but did not improve coverage (%d->%d); propagation may have been bypassed",
+                    finite_count,
+                    finite_count2,
+                )
+        except Exception as exc:  # keep original data if fallback fails
+            logger.warning(
+                "reproject_map_to_reference: fallback reproject_interp((data,wcs)) failed: %s",
+                exc,
+            )
 
     new_meta = cast(dict, ref_map.meta).copy()
+    # Record when we had to fall back to the (data,wcs) API which may bypass
+    # higher-level SunPy coordinate transformations (including propagation).
+    if fallback_used:
+        new_meta["REPROJ_FALLBACK"] = True
     new_map = sunpy.map.Map(
         reprojected_data, new_meta, plot_settings=input_map.plot_settings
     )
